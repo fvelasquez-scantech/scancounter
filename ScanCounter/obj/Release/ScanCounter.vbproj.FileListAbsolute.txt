@@ -1,0 +1,11 @@
+C:\Users\root\source\repos\ScanCounter\ScanCounter\bin\Release\ScanCounter.exe.config
+C:\Users\root\source\repos\ScanCounter\ScanCounter\bin\Release\ScanCounter.exe
+C:\Users\root\source\repos\ScanCounter\ScanCounter\bin\Release\ScanCounter.pdb
+C:\Users\root\source\repos\ScanCounter\ScanCounter\bin\Release\ScanCounter.xml
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.Resources.resources
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.vbproj.GenerateResource.cache
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.vbproj.CoreCompileInputs.cache
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.exe
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.xml
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.pdb
+C:\Users\root\source\repos\ScanCounter\ScanCounter\obj\Release\ScanCounter.FormPrincipal.resources

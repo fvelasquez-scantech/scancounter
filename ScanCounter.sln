@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32228.430
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "ScanCounter", "ScanCounter\ScanCounter.vbproj", "{9AF76970-4565-48C0-8BD6-B147A7D9481F}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "SetupScanCounter", "SetupScanCounter\SetupScanCounter.vdproj", "{AC57B323-9827-49DE-8F0E-312C37083499}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9AF76970-4565-48C0-8BD6-B147A7D9481F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AF76970-4565-48C0-8BD6-B147A7D9481F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AF76970-4565-48C0-8BD6-B147A7D9481F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9AF76970-4565-48C0-8BD6-B147A7D9481F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC57B323-9827-49DE-8F0E-312C37083499}.Debug|Any CPU.ActiveCfg = Debug
+		{AC57B323-9827-49DE-8F0E-312C37083499}.Release|Any CPU.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E649023E-5483-44E6-AF31-C642C226D560}
+	EndGlobalSection
+EndGlobal
