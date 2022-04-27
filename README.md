@@ -1,6 +1,7 @@
 # scancounter
 Contador de producto con front-end (.NET Framework 4.6.1 - WinForm) y back-end (.NET 6 WPF)
 
+```
 #include <RS232.h>
 
 // Lectura desde sensores de producto
@@ -133,3 +134,4 @@ void showNewData() {
     newData = false;
   }
 }
+```
