@@ -5,6 +5,8 @@ Public Class ConfiguracionesModel
 #Region "Propiedades"
     Public Property Id As Integer
     Public Property Puerto As String
+    Public Property ActualizacionDisponible As Boolean
+    Public Property DeployActualizacion As Boolean
 #End Region
 
 #Region "Funciones"
@@ -38,6 +40,71 @@ Public Class ConfiguracionesModel
                 connection.Close()
             End If
         End Try
+    End Function
+
+    Public Function ActualizarActualizacionDisponible() As Boolean
+        Dim connection As New SqlConnection
+        Dim command As SqlCommand
+        Dim result As Boolean
+
+        Try
+            connection.ConnectionString = Configuration.ConnectionString
+
+            command = New SqlCommand("Configuraciones_ActualizarActualizacionDisponible") With {
+                .CommandType = CommandType.StoredProcedure,
+                .Connection = connection
+            }
+
+            command.Parameters.AddWithValue("@actualizacion_disponible", ActualizacionDisponible)
+
+            connection.Open()
+
+            If command.ExecuteNonQuery Then
+                result = True
+            Else
+                result = False
+            End If
+        Catch ex As Exception
+            result = False
+        Finally
+            If connection.State = ConnectionState.Open Then
+                connection.Close()
+            End If
+        End Try
+
+        Return result
+    End Function
+    Public Function ActualizarDeployActualizacion() As Boolean
+        Dim connection As New SqlConnection
+        Dim command As SqlCommand
+        Dim result As Boolean
+
+        Try
+            connection.ConnectionString = Configuration.ConnectionString
+
+            command = New SqlCommand("Configuraciones_ActualizarDeployActualizacion") With {
+                .CommandType = CommandType.StoredProcedure,
+                .Connection = connection
+            }
+
+            command.Parameters.AddWithValue("@deploy_actualizacion", DeployActualizacion)
+
+            connection.Open()
+
+            If command.ExecuteNonQuery Then
+                result = True
+            Else
+                result = False
+            End If
+        Catch ex As Exception
+            result = False
+        Finally
+            If connection.State = ConnectionState.Open Then
+                connection.Close()
+            End If
+        End Try
+
+        Return result
     End Function
 #End Region
 

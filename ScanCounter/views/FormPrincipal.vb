@@ -1,7 +1,13 @@
-﻿Public Class FormPrincipal
+﻿Imports System.Net
+Imports System.Xml
+Imports Newtonsoft.Json.Linq
+Imports RestSharp
+
+Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
     Private bgOpcion As String = ""
     Private bgResultado As DataTable
+    Private bgwHelperResultado As Integer
 
     'Variables de ayuda para timer
     Private timerOpcion As String = ""
@@ -10,6 +16,7 @@
     Private ReadOnly Configuraciones As ConfiguracionesModel
     Private ReadOnly Sensores As SensoresModel
     Private ReadOnly Lecturas As LecturasModel
+    Private ReadOnly Wrapper As SecurityWrapper
 
     'Datatables
     Private ConfiguracionesDatatable As DataTable
@@ -19,8 +26,10 @@
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
     Private DelegadoArduino As New myMethodDelegate(AddressOf DataArduino)
+    Private DelegadoMensajes As New myMethodDelegate(AddressOf MuestraPanel)
 
     'Variables globales
+    Private COM As String = ""
     Private PuertoIndex As Byte = 1 'Index para consulta sql
     Private Contador1 As Integer = 0 'cuenta sensor 1 (identificador A desde arduino)
     Private Contador2 As Integer = 0 'cuenta sensor 2 (identificador B desde arduino)
@@ -30,6 +39,14 @@
     Private SensorIdEstadoIndex As Byte = 2 'index según consulta sql
     Private SensorNombreEstadoIndex As Byte = 3 'index según consulta sql
     Private TimerEstado As Boolean = False 'true: timer ya inició, false: timer aún no inicia
+    Private IdProducto As String = ""
+    Private Iniciando As Boolean = False
+    Private TiempoLecturaTotal1 As Integer = 0
+    Private TiempoLecturaTotal2 As Integer = 0
+    Private LecturaMinimaProducto As Integer = 0
+    Private LecturaMaximaProducto As Integer = 0
+    Private MaximoAlcanzado1 As Boolean = False
+    Private MaximoAlcanzado2 As Boolean = False
 
 #Region "Constructor"
     Sub New()
@@ -41,6 +58,7 @@
         Configuraciones = New ConfiguracionesModel
         Sensores = New SensoresModel
         Lecturas = New LecturasModel
+        Wrapper = New SecurityWrapper
     End Sub
 #End Region
 
@@ -51,6 +69,8 @@
                 RutinaLoad()
             Case "ListarSensor"
                 RutinaListarSensor()
+            Case "ValidaLicencia"
+                RutinaValidaLicencia()
         End Select
     End Sub
     Private Sub bgwHelper_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles bgwHelper.RunWorkerCompleted
@@ -59,12 +79,17 @@
                 RutinaLoad_Completed()
             Case "ListarSensor"
                 RutinaListarSensor_Completed()
+            Case "ValidaLicencia"
+                RutinaValidaLicencia_Completed()
         End Select
     End Sub
 #End Region
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Iniciando = True
+        Cursor.Hide()
+
         PbxLoadingSensor1.Show()
         PbxLoadingSensor1.BringToFront()
 
@@ -75,10 +100,24 @@
 
         bgwHelper.WorkerSupportsCancellation = True
 
-        IniciaBackgroundworker("Load")
-    End Sub
 
+        IniciaBackgroundworker("ValidaLicencia")
+    End Sub
     Sub RutinaLoad()
+        'If ChequeaNuevaVersionEnApi() Then
+        '    Console.WriteLine($"Nueva versión disponible")
+        '    Configuraciones.ActualizacionDisponible = True
+        '    If Not Configuraciones.ActualizarActualizacionDisponible() Then
+        '        bgResultado.Rows.Add("Error3")
+        '    End If
+        'Else
+        '    Console.WriteLine($"No hay versión nueva")
+        '    Configuraciones.ActualizacionDisponible = False
+        '    If Not Configuraciones.ActualizarActualizacionDisponible() Then
+        '        bgResultado.Rows.Add("Error4")
+        '    End If
+        'End If
+
         bgResultado = New DataTable
         bgResultado.Columns.Add("Result")
 
@@ -86,11 +125,22 @@
             ConfiguracionesDatatable = Configuraciones.Listar
 
             If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
-                If ConnectPort(ConfiguracionesDatatable.Rows(0)(PuertoIndex)) Then
-                    EnviaCaracterArduino("g") 'Imprime cont1 y cont2
+
+                LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
+                Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
+                LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
+                Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
+
+                COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
+
+                Console.WriteLine($"Iniciando conexión al puerto {COM}")
+
+                If ConnectPort(COM) Then
+                    'EnviaCaracterArduino("g") 'Imprime cont1 y cont2
 
                     'Actualiza ultimo inicio de lecturas de ambos sensores
                     'If Sensores.ActualizarUltimoInicioLecturas Then
+
                     bgResultado.Rows.Add("Ok")
                     'Else
                     '    bgResultado.Rows.Add("Error3")
@@ -117,6 +167,8 @@
                 LblSensor1.Show()
                 LblSensor2.Show()
 
+                LblVersion.Text = Application.ProductVersion
+
                 TimerEstado = False
                 TimerHelper.Stop()
 
@@ -132,7 +184,7 @@
                     IniciaTimer("Load")
                 End If
 
-                MuestraMensaje("Error 127")
+                MuestraMensaje("Error 127", 2)
                 Console.WriteLine("No hay datos en configuraciones")
             Case "Error"
                 PbxComStatus.Image = My.Resources.red_dot
@@ -143,7 +195,7 @@
                     IniciaTimer("Load")
                 End If
 
-                MuestraMensaje("Error 136")
+                MuestraMensaje("Error 136", 2)
                 Console.WriteLine("Error al intentar conectar el serialport")
             Case "Error2"
                 PbxComStatus.Image = My.Resources.red_dot
@@ -154,27 +206,147 @@
                     IniciaTimer("Load")
                 End If
 
-                MuestraMensaje("Error 145")
+                MuestraMensaje("Error 145", 2)
                 Console.WriteLine("Sin conexión al server")
-                'Case "Error3"
-                '    PbxComStatus.Image = My.Resources.red_dot
-                '    PbxNetworkStatus.Hide()
+            Case "Error3"
+                MuestraMensaje("Error 190", 2)
+                Console.WriteLine("No se pudo actualizar actualizacion_disponible a true")
+            Case "Error4"
+                MuestraMensaje("Error 197", 2)
+                Console.WriteLine("No se pudo actualizar actualizacion_disponible a false")
+        End Select
+    End Sub
 
-                '    If Not TimerEstado Then
-                '        TimerEstado = True
-                '        IniciaTimer("Load")
-                '    End If
+    Function ChequeaNuevaVersionEnApi() As Boolean
+        Dim client As New RestClient($"https://scantech.cl/api/productos/read_update_ruta_producto.php?id_producto={IdProducto}")
 
-                '    MuestraMensaje("Error 156")
-                '    Console.WriteLine("No se pudo actualizar ultimo_inicio_lecturas")
+        Dim request = New RestRequest(Method.GET)
+        Dim response As IRestResponse = client.Execute(request)
+        Dim content As String = response.Content
+
+        Dim result As Boolean
+        If response.StatusCode = HttpStatusCode.OK Then
+            Dim json As JObject = JObject.Parse(content)
+
+            Console.WriteLine($"versión: {json.SelectToken("Producto.version")}")
+            Console.WriteLine($"link: {json.SelectToken("Producto.link")}")
+            Console.WriteLine($"programa: {json.SelectToken("Producto.nombre_programa")}")
+
+            If Application.ProductVersion <> json.SelectToken("Producto.version") Then
+                result = True
+            Else
+                result = False
+            End If
+        Else
+            result = False
+        End If
+
+        Return result
+    End Function
+#End Region
+
+#Region "Valida licencia"
+    Sub RutinaValidaLicencia()
+        bgwHelperResultado = 0
+
+        If Not IO.File.Exists(Configuration.SourcePath) Then
+            bgwHelperResultado = 2
+        Else
+            Dim XmlDoc As XmlDocument = New XmlDocument()
+
+            XmlDoc.Load(Configuration.SavePath)
+
+            If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
+                IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
+                Console.WriteLine($"IdProducto {IdProducto}")
+
+                ' Lee licencia segun el id del producto
+                Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
+
+                Dim request = New RestRequest(Method.GET)
+                Dim response As IRestResponse = client.Execute(request)
+                Dim content As String = response.Content
+
+                If response.StatusCode = HttpStatusCode.OK Then
+                    Dim json As JObject = JObject.Parse(content)
+
+                    '¿Licencia está activa? (key_estado ACT || DIS)
+                    Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
+                    Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
+
+                    Dim result As String = json.SelectToken("Licencia.key_estado").ToString
+
+                    Select Case result
+                    'Case "DIS"
+                    '    bgwHelperResultado = 2
+                        Case "DES"
+                            bgwHelperResultado = 3
+                        Case "ACT", "DIS"
+                            Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
+                            Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
+                                Case "PRO"
+                                    bgwHelperResultado = 1
+                                Case "STANDAR"
+                                    Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
+
+                                    Dim desface As Long = DateDiff("d", fechaActivacion, Now)
+
+                                    If desface >= 7 Then
+                                        bgwHelperResultado = 4
+                                    End If
+                            End Select
+                    End Select
+                End If
+            Else
+                bgwHelperResultado = 2
+            End If
+        End If
+    End Sub
+    Sub RutinaValidaLicencia_Completed()
+        Select Case bgwHelperResultado
+            Case 0
+                MsgBox("Error (RutinaValidaLicencia 232)")
+            Case 1
+                IniciaBackgroundworker("Load")
+            Case 2
+                MsgBox("Su producto está sin licencia, por favor contacte a soporte@scantech.cl")
+                FormActivacion.ShowDialog()
+            Case 3
+                MsgBox("Su producto ha sido desactivado, por favor contacte a soporte@scantech.cl")
+                FormActivacion.ShowDialog()
+            Case 4
+                MsgBox("Para activar su licencia, por favor contacte a soporte@scantech.cl")
+                FormActivacion.ShowDialog()
         End Select
     End Sub
 #End Region
 
-#Region "Listar sensores"
+#Region "Listar sensores (Lista estado de sensores según intervalo de timer. Envía dato a PLC según estado configurado en el backend) "
     Sub RutinaListarSensor()
         bgResultado.Rows.Clear()
 
+        ConfiguracionesDatatable = Configuraciones.Listar
+
+        If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
+            If ConfiguracionesDatatable.Rows(0)(4) <> LecturaMinimaProducto Then 'si es distinto a lo asignado en load
+                LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
+                Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
+            End If
+
+            If ConfiguracionesDatatable.Rows(0)(5) <> LecturaMaximaProducto Then
+                LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
+                Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
+            End If
+
+        End If
+        'Console.WriteLine($"ConfiguracionesDatatable.Rows(0)(3) {ConfiguracionesDatatable.Rows(0)(3).ToString}")
+        'ConfiguracionesDatatable = Configuraciones.Listar
+        'If ConfiguracionesDatatable.Rows(0)(3) = True Then 'deploy_actualizacion
+        '    Configuraciones.DeployActualizacion = False
+        '    Configuraciones.ActualizarDeployActualizacion()
+        '    bgResultado.Rows.Add("Update")
+        '    Exit Sub
+        'End If
         Select Case Sensores.Id
             Case 1
                 Sensor1Datatable = Sensores.Listar
@@ -195,10 +367,17 @@
         End Select
     End Sub
     Sub RutinaListarSensor_Completed()
+
         Select Case bgResultado.Rows(0)(0)
             Case "Ok"
                 Select Case Sensores.Id
                     Case 1
+                        If Iniciando Then
+                            Contador1 = Sensor1Datatable.Rows(0)(4)
+                            LblContador1.Text = Contador1
+                            AcomodaLabel("Contador1")
+                        End If
+
                         LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
                         LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
@@ -210,6 +389,12 @@
 
                         IniciaBackgroundworker("ListarSensor")
                     Case 2
+                        If Iniciando Then
+                            Contador2 = Sensor2Datatable.Rows(0)(4)
+                            LblContador2.Text = Contador2
+                            AcomodaLabel("Contador2")
+                        End If
+
                         LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
                         LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
@@ -227,10 +412,12 @@
                                 Case 2
                                     EnviaCaracterArduino("b") 'sensor1_Estado = 2 (Sólo imprime contador (en pausa))
                                 Case 3
-                                    EnviaCaracterArduino("c") 'Reset de contador y lo pone en pausa para no realizar conteo
+                                    'EnviaCaracterArduino("c") 'Reset de contador y lo pone en pausa para no realizar conteo
+                                    EnviaCaracterArduino("b") 'Reset de contador y lo pone en pausa para no realizar conteo
 
-                                    LblContador1.Text = "0"
-                                    LblContador1.Location = New Point(340, 220)
+                                    Contador1 = 0
+                                    LblContador1.Text = Contador1
+                                    AcomodaLabel("Contador1")
                             End Select
 
                             Select Case Sensor2Estado
@@ -239,19 +426,27 @@
                                 Case 2
                                     EnviaCaracterArduino("e") 'sensor2_Estado = 2 (Sólo imprime contador (en pausa))
                                 Case 3
-                                    EnviaCaracterArduino("f") 'Reset de contador y lo pone en pausa para no realizar conteo
+                                    'EnviaCaracterArduino("f") 'Reset de contador y lo pone en pausa para no realizar conteo
+                                    EnviaCaracterArduino("e") 'Reset de contador y lo pone en pausa para no realizar conteo
 
-                                    LblContador2.Text = "0"
-                                    LblContador2.Location = New Point(380, 220)
+                                    Contador2 = 0
+                                    LblContador2.Text = Contador2
+                                    AcomodaLabel("Contador2")
                             End Select
+
+                            Iniciando = False
                         End If
                 End Select
             Case "Error1"
-                MuestraMensaje("Error 220")
+                MuestraMensaje("Error 220", 2)
                 Console.WriteLine("Error listando sensor 1")
             Case "Error2"
-                MuestraMensaje("Error 223")
+                MuestraMensaje("Error 223", 2)
                 Console.WriteLine("Error listando sensor 2")
+                'Case "Update"
+                '    EjecutarComando("C:\Scantech\ScanUpdater.exe")
+
+                '    Close()
         End Select
     End Sub
 #End Region
@@ -280,6 +475,28 @@
 
         Await InsertarAsync()
     End Sub
+#End Region
+
+#Region "Timer para controlar tiempo de lectura de cada producto"
+    Private Sub TimerTiempoLectura_Tick(sender As Object, e As EventArgs) Handles TimerTiempoLectura1.Tick
+        'If TiempoLecturaTotal1 < LecturaMaximaProducto Then
+        TiempoLecturaTotal1 += TimerTiempoLectura1.Interval
+            LblLectura1.Text = TiempoLecturaTotal1
+        'Else
+        '    TimerTiempoLectura1.Stop()
+        'MaximoAlcanzado1 = True
+        'End If
+    End Sub
+    Private Sub TimerTiempoLectura2_Tick(sender As Object, e As EventArgs) Handles TimerTiempoLectura2.Tick
+        'If TiempoLecturaTotal2 < LecturaMaximaProducto Then
+        TiempoLecturaTotal2 += TimerTiempoLectura2.Interval
+            LblLectura2.Text = TiempoLecturaTotal2
+        'Else
+        '    TimerTiempoLectura2.Stop()
+        '    MaximoAlcanzado2 = True
+        'End If
+    End Sub
+
 #End Region
 
 #Region "Arduino"
@@ -325,98 +542,201 @@
 
 #Region "Delegado para puerto serial y función DataReceived de SerialPort"
     Sub DataArduino()
-        'Lee desde arduino
-        Dim lectura As String = SerialPort1.ReadLine
+        Try
+            'Lee desde arduino
+            Dim lectura As String = SerialPort1.ReadExisting
 
-        'Incoming data
-        'A:15
-        'B:2
-        Console.WriteLine($"{lectura}")
-        If Not String.IsNullOrWhiteSpace(lectura) Then
-            lectura = lectura.Trim
+            'Console.WriteLine($"{lectura}")
+            If Not String.IsNullOrWhiteSpace(lectura) Then
+                lectura = lectura.Trim
 
-            Select Case lectura.Substring(0, 1)
-                Case "A" 'Sensor 1
-                    LblContador1.Text = lectura.Split(":")(1)
+                'If Iniciando Then
+                '    LblContador1.Text = Contador1
+                '    LblContador2.Text = Contador2
+                '    Iniciando = False
+                'End If
 
-                    Select Case Sensor1Estado
-                        Case 1
-                            RutinaInsertar(1)
-                    End Select
+                'Select Case lectura.Substring(0, 1)
+                Select Case lectura
+                    Case "A" 'Sensor 1
+                        'If lectura.Length < 2 Then
+                        ' Sensor dejó de leer (I0_0 en 0V)
+                        'MaximoAlcanzado1 = False
+                        TimerTiempoLectura1.Stop()
 
-                Case "B" 'Sensor 2
-                    LblContador2.Text = lectura.Split(":")(1)
+                        If TiempoLecturaTotal1 >= LecturaMinimaProducto Then
+                            Contador1 += 1
+                            LblContador1.Text = Contador1
 
-                    Select Case Sensor2Estado
-                        Case 1
-                            RutinaInsertar(2)
-                    End Select
-                Case Else
-                    MuestraMensaje("Error (326)")
-                    Console.WriteLine("identificador del sensor desde plc desconocido (268)")
-            End Select
+                            Select Case Sensor1Estado
+                                Case 1
+                                    RutinaInsertar(1)
+                            End Select
+                        End If
 
-            LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
-        Else
-            MuestraMensaje("Error 332")
-            Console.WriteLine("lectura desde SerialPort con error (273)")
-        End If
+                        TiempoLecturaTotal1 = 0
 
+                        'Else
+                        '    ' Sensor se encuentra leyendo (I0_0 en 24V)
+                        '    If Not MaximoAlcanzado1 Then
+                        '        TimerTiempoLectura1.Enabled = True
+                        '        TimerTiempoLectura1.Start()
+                        '    End If
 
+                        'End If
+                    Case "Z"
+                        ' Sensor se encuentra leyendo (I0_0 en 24V)
+                        'If Not MaximoAlcanzado1 Then
+                        TimerTiempoLectura1.Enabled = True
+                        TimerTiempoLectura1.Start()
 
-        'Mueve texto del contador para centrarlo
-        Select Case LblContador1.Text.Length
-            Case 1 ' < 10
-                LblContador1.Location = New Point(340, 220)
-            Case 2 ' >= 10 < 100
-                LblContador1.Location = New Point(250, 220)
-            Case 3 ' >= 100 < 1000
-                LblContador1.Location = New Point(180, 220)
-            Case 4 ' >= 1000 < 10000
-                LblContador1.Location = New Point(110, 220)
-            Case 5 ' >= 10000 < 100000
-                LblContador1.Location = New Point(40, 220)
-        End Select
+                        'End If
+                    Case "B" 'Sensor 2
+                        'If lectura.Length < 2 Then
+                        ' Sensor dejó de leer (I0_1 en 0V)
+                        'MaximoAlcanzado2 = False
+                        TimerTiempoLectura2.Stop()
+                        If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
 
-        Select Case LblContador2.Text.Length
-            Case 1 ' < 10
-                LblContador2.Location = New Point(380, 220)
-            Case 2 ' >= 10 < 100
-                LblContador2.Location = New Point(290, 220)
-            Case 3 ' >= 100 < 1000
-                LblContador2.Location = New Point(220, 220)
-            Case 4 ' >= 1000 < 10000
-                LblContador2.Location = New Point(140, 220)
-            Case 5 ' >= 10000 < 100000
-                LblContador2.Location = New Point(70, 220)
-        End Select
+                                Contador2 += 1
+                                LblContador2.Text = Contador2
 
-        Select Case LblTotal.Text.Length
-            Case 1, 2 ' < 100 Pzs
-                LblTotal.Location = New Point(805, 80)
-            Case 3 ' >= 100 < 1000 Pzs
-                LblTotal.Location = New Point(780, 80)
-            Case 4 ' >= 1000 < 10000 Pzs
-                LblTotal.Location = New Point(720, 80)
-            Case 5 ' >= 10000 < 100000 Pzs
-                LblTotal.Location = New Point(690, 80)
-            Case 6 ' >= 100000 < 1000000 Pzs
-                LblTotal.Location = New Point(640, 80)
-        End Select
+                                Select Case Sensor2Estado
+                                    Case 1
+                                    RutinaInsertar(2)
+                            End Select
+                            End If
 
+                            TiempoLecturaTotal2 = 0
+                        'Else
+                        '    ' Sensor se encuentra leyendo (I0_1 en 24V)
+                        '    If Not MaximoAlcanzado2 Then
+                        '        TimerTiempoLectura2.Enabled = True
+                        '        TimerTiempoLectura2.Start()
+                        '    End If
+                        'End If
+                    Case "Y"
+                        TimerTiempoLectura2.Enabled = True
+                        TimerTiempoLectura2.Start()
+                        'Case Else
+                        '    MuestraMensaje("Error (326)", 2)
+                        '    Console.WriteLine("identificador del sensor desde plc desconocido (326)")
+                End Select
+                'Select Case lectura.Substring(0, 1)
+                '    Case "A" 'Sensor 1
+                '        If Iniciando Then
+                '            LblContador1.Text = lectura.Split(":")(1)
+                '            Iniciando = False
+                '        End If
+
+                '        If lectura.Split(":")(1) <> -1 Then
+                '            ' Sensor dejó de leer (I0_0 en 0V)
+                '            TimerTiempoLectura.Stop()
+
+                '            If TiempoLecturaTotal > LecturaMinimaProducto Then
+                '                TiempoLecturaTotal = 0
+                '                MuestraMensaje("Lectura correcta!", 1)
+                '                LblContador1.Text = lectura.Split(":")(1)
+
+                '                Select Case Sensor1Estado
+                '                    Case 1
+                '                        RutinaInsertar(1)
+                '                End Select
+                '            End If
+                '        Else
+                '            ' Sensor se encuentra leyendo (I0_0 en 24V)
+                '            TimerTiempoLectura.Enabled = True
+                '            TimerTiempoLectura.Start()
+
+                '            'Console.WriteLine($"TiempoLecturaTotal: {TiempoLecturaTotal}")
+                '        End If
+
+                '    Case "B" 'Sensor 2
+                '        If Iniciando Then
+                '            LblContador2.Text = lectura.Split(":")(1)
+                '            Iniciando = False
+                '        End If
+
+                '        LblContador2.Text = lectura.Split(":")(1)
+
+                '        Select Case Sensor2Estado
+                '            Case 1
+                '                RutinaInsertar(2)
+                '        End Select
+                '    Case Else
+                '        MuestraMensaje("Error (326)", 2)
+                '        Console.WriteLine("identificador del sensor desde plc desconocido (326)")
+                'End Select
+
+                LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
+            Else
+                MuestraMensaje("Error 332", 2)
+                Console.WriteLine("lectura desde SerialPort con error (332)")
+            End If
+
+            'Mueve texto del contador para centrarlo
+            AcomodaLabel("Contador1")
+            AcomodaLabel("Contador2")
+            AcomodaLabel("ContadorTotal")
+        Catch ex As Exception
+            MuestraMensaje("Error 552", 2)
+        End Try
     End Sub
 
-    Private Sub SerialPort_DataReceived(ByVal sender As Object, ByVal e As System.IO.Ports.SerialDataReceivedEventArgs) Handles SerialPort1.DataReceived
+    Private Sub SerialPort_DataReceived(sender As Object, e As IO.Ports.SerialDataReceivedEventArgs) Handles SerialPort1.DataReceived
         Invoke(DelegadoArduino)
     End Sub
 #End Region
 
 #Region "Funciones"
+    Sub AcomodaLabel(Cual As String)
+        Select Case Cual
+            Case "Contador1"
+                Select Case LblContador1.Text.Length
+                    Case 1 ' < 10
+                        LblContador1.Location = New Point(340, 220)
+                    Case 2 ' >= 10 < 100
+                        LblContador1.Location = New Point(250, 220)
+                    Case 3 ' >= 100 < 1000
+                        LblContador1.Location = New Point(180, 220)
+                    Case 4 ' >= 1000 < 10000
+                        LblContador1.Location = New Point(110, 220)
+                    Case 5 ' >= 10000 < 100000
+                        LblContador1.Location = New Point(40, 220)
+                End Select
+            Case "Contador2"
+                Select Case LblContador2.Text.Length
+                    Case 1 ' < 10
+                        LblContador2.Location = New Point(380, 220)
+                    Case 2 ' >= 10 < 100
+                        LblContador2.Location = New Point(290, 220)
+                    Case 3 ' >= 100 < 1000
+                        LblContador2.Location = New Point(220, 220)
+                    Case 4 ' >= 1000 < 10000
+                        LblContador2.Location = New Point(140, 220)
+                    Case 5 ' >= 10000 < 100000
+                        LblContador2.Location = New Point(70, 220)
+                End Select
+            Case "Total"
+                Select Case LblTotal.Text.Length
+                    Case 1, 2 ' < 100 Pzs
+                        LblTotal.Location = New Point(805, 80)
+                    Case 3 ' >= 100 < 1000 Pzs
+                        LblTotal.Location = New Point(780, 80)
+                    Case 4 ' >= 1000 < 10000 Pzs
+                        LblTotal.Location = New Point(720, 80)
+                    Case 5 ' >= 10000 < 100000 Pzs
+                        LblTotal.Location = New Point(690, 80)
+                    Case 6 ' >= 100000 < 1000000 Pzs
+                        LblTotal.Location = New Point(640, 80)
+                End Select
+        End Select
+    End Sub
     Sub IniciaBackgroundworker(Opcion As String)
         bgOpcion = Opcion
 
         If bgwHelper.IsBusy Then
-            MuestraMensaje($"Error 353")
+            MuestraMensaje($"Error 353", 2)
             Console.WriteLine($"Proceso aún en marcha")
             bgwHelper.CancelAsync()
         Else
@@ -437,24 +757,54 @@
                 SerialPort1.WriteLine(Caracter)
             Catch ex As Exception
                 DisconnectPort()
-                MuestraMensaje($"Error 374")
+                MuestraMensaje($"Error 374", 2)
                 Console.WriteLine("Serialport is with error, system will reboot")
             End Try
         Else
-            MuestraMensaje("Error 378")
+            MuestraMensaje("Error 378", 2)
             Console.WriteLine("Serialport is closed")
         End If
     End Sub
 
-    Sub MuestraMensaje(Mensaje As String)
+    Sub MuestraMensaje(Mensaje As String, Tipo As Byte)
+        Console.WriteLine($"Mensaje {Mensaje}")
         LblError.Text = Mensaje
-        PanelError.Show()
+        If Tipo = 1 Then
+            PanelError.BackColor = Color.Green
+        Else
+            PanelError.BackColor = Color.Red
+        End If
+        Invoke(DelegadoMensajes)
         TimerMensaje.Start()
+    End Sub
+    Sub MuestraPanel()
+        PanelError.Show()
     End Sub
 
     Private Sub TimerMensaje_Tick(sender As Object, e As EventArgs) Handles TimerMensaje.Tick
         PanelError.Hide()
     End Sub
+
+    Sub EjecutarComando(command As String)
+        Dim p As New Process
+        Dim startInfo As New ProcessStartInfo()
+        startInfo.FileName = "cmd.exe"
+        startInfo.Arguments = "/c " & command
+        startInfo.UseShellExecute = False
+        startInfo.CreateNoWindow = True
+        p.StartInfo = startInfo
+        p.Start()
+    End Sub
+
+
+
+
+    'Private Sub TimerUpdater_Tick(sender As Object, e As EventArgs) Handles TimerUpdater.Tick
+    '    Console.WriteLine($"Iniciando ScanUpdater")
+    '    EjecutarComando("C:\Scantech\ScanUpdater.exe")
+
+    '    Close()
+    'End Sub
 #End Region
 
 End Class

@@ -7,6 +7,8 @@ Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "ScanCounter", "ScanCounter\
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "SetupScanCounter", "SetupScanCounter\SetupScanCounter.vdproj", "{AC57B323-9827-49DE-8F0E-312C37083499}"
 EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Updater", "Updater\Updater.vbproj", "{097D5113-7667-4BFB-A453-756BD30A814F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,6 +21,10 @@ Global
 		{9AF76970-4565-48C0-8BD6-B147A7D9481F}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AC57B323-9827-49DE-8F0E-312C37083499}.Debug|Any CPU.ActiveCfg = Debug
 		{AC57B323-9827-49DE-8F0E-312C37083499}.Release|Any CPU.ActiveCfg = Release
+		{097D5113-7667-4BFB-A453-756BD30A814F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{097D5113-7667-4BFB-A453-756BD30A814F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{097D5113-7667-4BFB-A453-756BD30A814F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{097D5113-7667-4BFB-A453-756BD30A814F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

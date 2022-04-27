@@ -31,29 +31,35 @@ Partial Class FormPrincipal
         Me.Label3 = New System.Windows.Forms.Label()
         Me.Label4 = New System.Windows.Forms.Label()
         Me.Panel4 = New System.Windows.Forms.Panel()
+        Me.LblVersion = New System.Windows.Forms.Label()
         Me.PbxNetworkStatus = New System.Windows.Forms.PictureBox()
         Me.PbxComStatus = New System.Windows.Forms.PictureBox()
         Me.Label5 = New System.Windows.Forms.Label()
         Me.LblTotal = New System.Windows.Forms.Label()
         Me.PbxLoading3 = New System.Windows.Forms.PictureBox()
         Me.Panel1 = New System.Windows.Forms.Panel()
+        Me.LblLectura1 = New System.Windows.Forms.Label()
         Me.LblSensor1Estado = New System.Windows.Forms.Label()
         Me.Panel3 = New System.Windows.Forms.Panel()
         Me.PanelLoadingS1 = New System.Windows.Forms.Panel()
-        Me.PbxLoading4 = New System.Windows.Forms.PictureBox()
         Me.LblSensor1 = New System.Windows.Forms.Label()
+        Me.PbxLoading4 = New System.Windows.Forms.PictureBox()
         Me.PbxLoadingSensor1 = New System.Windows.Forms.PictureBox()
         Me.Panel2 = New System.Windows.Forms.Panel()
+        Me.LblLectura2 = New System.Windows.Forms.Label()
         Me.LblSensor2Estado = New System.Windows.Forms.Label()
         Me.Panel5 = New System.Windows.Forms.Panel()
         Me.PanelLoadingS2 = New System.Windows.Forms.Panel()
-        Me.PbxLoading5 = New System.Windows.Forms.PictureBox()
         Me.LblSensor2 = New System.Windows.Forms.Label()
+        Me.PbxLoading5 = New System.Windows.Forms.PictureBox()
         Me.PbxLoadingSensor2 = New System.Windows.Forms.PictureBox()
         Me.bgwHelper = New System.ComponentModel.BackgroundWorker()
         Me.PanelError = New System.Windows.Forms.Panel()
         Me.LblError = New System.Windows.Forms.Label()
         Me.TimerMensaje = New System.Windows.Forms.Timer(Me.components)
+        Me.TimerUpdater = New System.Windows.Forms.Timer(Me.components)
+        Me.TimerTiempoLectura1 = New System.Windows.Forms.Timer(Me.components)
+        Me.TimerTiempoLectura2 = New System.Windows.Forms.Timer(Me.components)
         Me.Panel4.SuspendLayout()
         CType(Me.PbxNetworkStatus, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.PbxComStatus, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -129,21 +135,34 @@ Partial Class FormPrincipal
         'Panel4
         '
         Me.Panel4.BackColor = System.Drawing.Color.SteelBlue
+        Me.Panel4.Controls.Add(Me.LblVersion)
         Me.Panel4.Controls.Add(Me.PbxNetworkStatus)
         Me.Panel4.Controls.Add(Me.PbxComStatus)
         Me.Panel4.Controls.Add(Me.Label5)
         Me.Panel4.Controls.Add(Me.LblTotal)
         Me.Panel4.Controls.Add(Me.PbxLoading3)
         Me.Panel4.Dock = System.Windows.Forms.DockStyle.Bottom
-        Me.Panel4.Location = New System.Drawing.Point(0, 812)
+        Me.Panel4.Location = New System.Drawing.Point(0, 520)
         Me.Panel4.Name = "Panel4"
-        Me.Panel4.Size = New System.Drawing.Size(1920, 268)
+        Me.Panel4.Size = New System.Drawing.Size(1386, 268)
         Me.Panel4.TabIndex = 18
+        '
+        'LblVersion
+        '
+        Me.LblVersion.AutoSize = True
+        Me.LblVersion.BackColor = System.Drawing.Color.Transparent
+        Me.LblVersion.Font = New System.Drawing.Font("Arial", 15.0!, System.Drawing.FontStyle.Bold)
+        Me.LblVersion.ForeColor = System.Drawing.Color.White
+        Me.LblVersion.Location = New System.Drawing.Point(12, 239)
+        Me.LblVersion.Name = "LblVersion"
+        Me.LblVersion.Size = New System.Drawing.Size(83, 24)
+        Me.LblVersion.TabIndex = 23
+        Me.LblVersion.Text = "v1.0.0.0"
         '
         'PbxNetworkStatus
         '
         Me.PbxNetworkStatus.Image = Global.ScanCounter.My.Resources.Resources.network
-        Me.PbxNetworkStatus.Location = New System.Drawing.Point(88, 196)
+        Me.PbxNetworkStatus.Location = New System.Drawing.Point(81, 176)
         Me.PbxNetworkStatus.Name = "PbxNetworkStatus"
         Me.PbxNetworkStatus.Size = New System.Drawing.Size(60, 60)
         Me.PbxNetworkStatus.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage
@@ -153,7 +172,7 @@ Partial Class FormPrincipal
         'PbxComStatus
         '
         Me.PbxComStatus.Image = Global.ScanCounter.My.Resources.Resources.red_dot
-        Me.PbxComStatus.Location = New System.Drawing.Point(12, 196)
+        Me.PbxComStatus.Location = New System.Drawing.Point(12, 176)
         Me.PbxComStatus.Name = "PbxComStatus"
         Me.PbxComStatus.Size = New System.Drawing.Size(60, 60)
         Me.PbxComStatus.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage
@@ -197,6 +216,7 @@ Partial Class FormPrincipal
         'Panel1
         '
         Me.Panel1.BackColor = System.Drawing.Color.Lavender
+        Me.Panel1.Controls.Add(Me.LblLectura1)
         Me.Panel1.Controls.Add(Me.Label3)
         Me.Panel1.Controls.Add(Me.LblSensor1Estado)
         Me.Panel1.Controls.Add(Me.Panel3)
@@ -205,8 +225,18 @@ Partial Class FormPrincipal
         Me.Panel1.Dock = System.Windows.Forms.DockStyle.Left
         Me.Panel1.Location = New System.Drawing.Point(0, 0)
         Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(960, 812)
+        Me.Panel1.Size = New System.Drawing.Size(960, 520)
         Me.Panel1.TabIndex = 19
+        '
+        'LblLectura1
+        '
+        Me.LblLectura1.AutoSize = True
+        Me.LblLectura1.Font = New System.Drawing.Font("Microsoft Sans Serif", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.LblLectura1.Location = New System.Drawing.Point(21, 173)
+        Me.LblLectura1.Name = "LblLectura1"
+        Me.LblLectura1.Size = New System.Drawing.Size(18, 20)
+        Me.LblLectura1.TabIndex = 25
+        Me.LblLectura1.Text = "0"
         '
         'LblSensor1Estado
         '
@@ -240,16 +270,6 @@ Partial Class FormPrincipal
         Me.PanelLoadingS1.Size = New System.Drawing.Size(960, 158)
         Me.PanelLoadingS1.TabIndex = 24
         '
-        'PbxLoading4
-        '
-        Me.PbxLoading4.Image = Global.ScanCounter.My.Resources.Resources.waiting
-        Me.PbxLoading4.Location = New System.Drawing.Point(184, 32)
-        Me.PbxLoading4.Name = "PbxLoading4"
-        Me.PbxLoading4.Size = New System.Drawing.Size(533, 79)
-        Me.PbxLoading4.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
-        Me.PbxLoading4.TabIndex = 23
-        Me.PbxLoading4.TabStop = False
-        '
         'LblSensor1
         '
         Me.LblSensor1.AutoSize = True
@@ -263,13 +283,23 @@ Partial Class FormPrincipal
         Me.LblSensor1.Text = "Recepción 1"
         Me.LblSensor1.Visible = False
         '
+        'PbxLoading4
+        '
+        Me.PbxLoading4.Image = Global.ScanCounter.My.Resources.Resources.waiting
+        Me.PbxLoading4.Location = New System.Drawing.Point(184, 32)
+        Me.PbxLoading4.Name = "PbxLoading4"
+        Me.PbxLoading4.Size = New System.Drawing.Size(533, 79)
+        Me.PbxLoading4.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
+        Me.PbxLoading4.TabIndex = 23
+        Me.PbxLoading4.TabStop = False
+        '
         'PbxLoadingSensor1
         '
         Me.PbxLoadingSensor1.Dock = System.Windows.Forms.DockStyle.Fill
         Me.PbxLoadingSensor1.Image = Global.ScanCounter.My.Resources.Resources.loading
         Me.PbxLoadingSensor1.Location = New System.Drawing.Point(0, 0)
         Me.PbxLoadingSensor1.Name = "PbxLoadingSensor1"
-        Me.PbxLoadingSensor1.Size = New System.Drawing.Size(960, 812)
+        Me.PbxLoadingSensor1.Size = New System.Drawing.Size(960, 520)
         Me.PbxLoadingSensor1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
         Me.PbxLoadingSensor1.TabIndex = 24
         Me.PbxLoadingSensor1.TabStop = False
@@ -278,6 +308,7 @@ Partial Class FormPrincipal
         'Panel2
         '
         Me.Panel2.BackColor = System.Drawing.Color.Snow
+        Me.Panel2.Controls.Add(Me.LblLectura2)
         Me.Panel2.Controls.Add(Me.Label4)
         Me.Panel2.Controls.Add(Me.LblSensor2Estado)
         Me.Panel2.Controls.Add(Me.Panel5)
@@ -286,8 +317,18 @@ Partial Class FormPrincipal
         Me.Panel2.Dock = System.Windows.Forms.DockStyle.Fill
         Me.Panel2.Location = New System.Drawing.Point(960, 0)
         Me.Panel2.Name = "Panel2"
-        Me.Panel2.Size = New System.Drawing.Size(960, 812)
+        Me.Panel2.Size = New System.Drawing.Size(426, 520)
         Me.Panel2.TabIndex = 20
+        '
+        'LblLectura2
+        '
+        Me.LblLectura2.AutoSize = True
+        Me.LblLectura2.Font = New System.Drawing.Font("Microsoft Sans Serif", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.LblLectura2.Location = New System.Drawing.Point(23, 173)
+        Me.LblLectura2.Name = "LblLectura2"
+        Me.LblLectura2.Size = New System.Drawing.Size(18, 20)
+        Me.LblLectura2.TabIndex = 26
+        Me.LblLectura2.Text = "0"
         '
         'LblSensor2Estado
         '
@@ -308,7 +349,7 @@ Partial Class FormPrincipal
         Me.Panel5.Dock = System.Windows.Forms.DockStyle.Top
         Me.Panel5.Location = New System.Drawing.Point(0, 0)
         Me.Panel5.Name = "Panel5"
-        Me.Panel5.Size = New System.Drawing.Size(960, 158)
+        Me.Panel5.Size = New System.Drawing.Size(426, 158)
         Me.Panel5.TabIndex = 23
         '
         'PanelLoadingS2
@@ -318,18 +359,8 @@ Partial Class FormPrincipal
         Me.PanelLoadingS2.Dock = System.Windows.Forms.DockStyle.Fill
         Me.PanelLoadingS2.Location = New System.Drawing.Point(0, 0)
         Me.PanelLoadingS2.Name = "PanelLoadingS2"
-        Me.PanelLoadingS2.Size = New System.Drawing.Size(960, 158)
+        Me.PanelLoadingS2.Size = New System.Drawing.Size(426, 158)
         Me.PanelLoadingS2.TabIndex = 25
-        '
-        'PbxLoading5
-        '
-        Me.PbxLoading5.Image = Global.ScanCounter.My.Resources.Resources.waiting
-        Me.PbxLoading5.Location = New System.Drawing.Point(247, 32)
-        Me.PbxLoading5.Name = "PbxLoading5"
-        Me.PbxLoading5.Size = New System.Drawing.Size(533, 79)
-        Me.PbxLoading5.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
-        Me.PbxLoading5.TabIndex = 23
-        Me.PbxLoading5.TabStop = False
         '
         'LblSensor2
         '
@@ -344,13 +375,23 @@ Partial Class FormPrincipal
         Me.LblSensor2.Text = "Recepción 2"
         Me.LblSensor2.Visible = False
         '
+        'PbxLoading5
+        '
+        Me.PbxLoading5.Image = Global.ScanCounter.My.Resources.Resources.waiting
+        Me.PbxLoading5.Location = New System.Drawing.Point(247, 32)
+        Me.PbxLoading5.Name = "PbxLoading5"
+        Me.PbxLoading5.Size = New System.Drawing.Size(533, 79)
+        Me.PbxLoading5.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
+        Me.PbxLoading5.TabIndex = 23
+        Me.PbxLoading5.TabStop = False
+        '
         'PbxLoadingSensor2
         '
         Me.PbxLoadingSensor2.Dock = System.Windows.Forms.DockStyle.Fill
         Me.PbxLoadingSensor2.Image = Global.ScanCounter.My.Resources.Resources.loading
         Me.PbxLoadingSensor2.Location = New System.Drawing.Point(0, 0)
         Me.PbxLoadingSensor2.Name = "PbxLoadingSensor2"
-        Me.PbxLoadingSensor2.Size = New System.Drawing.Size(960, 812)
+        Me.PbxLoadingSensor2.Size = New System.Drawing.Size(426, 520)
         Me.PbxLoadingSensor2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage
         Me.PbxLoadingSensor2.TabIndex = 25
         Me.PbxLoadingSensor2.TabStop = False
@@ -387,16 +428,30 @@ Partial Class FormPrincipal
         '
         Me.TimerMensaje.Interval = 2000
         '
+        'TimerUpdater
+        '
+        Me.TimerUpdater.Enabled = True
+        Me.TimerUpdater.Interval = 5000
+        '
+        'TimerTiempoLectura1
+        '
+        Me.TimerTiempoLectura1.Interval = 10
+        '
+        'TimerTiempoLectura2
+        '
+        Me.TimerTiempoLectura2.Interval = 10
+        '
         'FormPrincipal
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.WhiteSmoke
-        Me.ClientSize = New System.Drawing.Size(1920, 1080)
+        Me.ClientSize = New System.Drawing.Size(1386, 788)
         Me.Controls.Add(Me.PanelError)
         Me.Controls.Add(Me.Panel2)
         Me.Controls.Add(Me.Panel1)
         Me.Controls.Add(Me.Panel4)
+        Me.Cursor = System.Windows.Forms.Cursors.AppStarting
         Me.DoubleBuffered = True
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
@@ -459,4 +514,10 @@ Partial Class FormPrincipal
     Friend WithEvents PanelError As Panel
     Friend WithEvents LblError As Label
     Friend WithEvents TimerMensaje As Timer
+    Friend WithEvents TimerUpdater As Timer
+    Friend WithEvents LblVersion As Label
+    Friend WithEvents TimerTiempoLectura1 As Timer
+    Friend WithEvents LblLectura1 As Label
+    Friend WithEvents TimerTiempoLectura2 As Timer
+    Friend WithEvents LblLectura2 As Label
 End Class
