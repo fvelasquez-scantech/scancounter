@@ -19,10 +19,12 @@ Public Class ConfiguracionesModel
         Try
             connection.ConnectionString = Configuration.ConnectionString
 
-            command = New SqlCommand("Configuraciones_Listar") With {
+            command = New SqlCommand("Configuraciones_Listar_SegunId") With {
                 .CommandType = CommandType.StoredProcedure,
                 .Connection = connection
             }
+
+            command.Parameters.AddWithValue("@id", Id)
 
             connection.Open()
 

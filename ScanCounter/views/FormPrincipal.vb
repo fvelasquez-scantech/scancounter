@@ -29,6 +29,8 @@ Public Class FormPrincipal
     Private DelegadoMensajes As New myMethodDelegate(AddressOf MuestraPanel)
 
     'Variables globales
+    Private IdSensor1 As Byte = 3
+    Private IdSensor2 As Byte = 4
     Private COM As String = ""
     Private PuertoIndex As Byte = 1 'Index para consulta sql
     Private Contador1 As Integer = 0 'cuenta sensor 1 (identificador A desde arduino)
@@ -122,6 +124,8 @@ Public Class FormPrincipal
         bgResultado.Columns.Add("Result")
 
         If My.Computer.Network.Ping(Configuration.Server, 3000) Then
+            Configuraciones.Id = 2
+
             ConfiguracionesDatatable = Configuraciones.Listar
 
             If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
@@ -172,7 +176,7 @@ Public Class FormPrincipal
                 TimerEstado = False
                 TimerHelper.Stop()
 
-                Sensores.Id = 1
+                Sensores.Id = IdSensor1
 
                 IniciaBackgroundworker("ListarSensor")
             Case "Error1"
@@ -305,16 +309,20 @@ Public Class FormPrincipal
     Sub RutinaValidaLicencia_Completed()
         Select Case bgwHelperResultado
             Case 0
+                Cursor.Show()
                 MsgBox("Error (RutinaValidaLicencia 232)")
             Case 1
                 IniciaBackgroundworker("Load")
             Case 2
+                Cursor.Show()
                 MsgBox("Su producto está sin licencia, por favor contacte a soporte@scantech.cl")
                 FormActivacion.ShowDialog()
             Case 3
+                Cursor.Show()
                 MsgBox("Su producto ha sido desactivado, por favor contacte a soporte@scantech.cl")
                 FormActivacion.ShowDialog()
             Case 4
+                Cursor.Show()
                 MsgBox("Para activar su licencia, por favor contacte a soporte@scantech.cl")
                 FormActivacion.ShowDialog()
         End Select
@@ -348,7 +356,7 @@ Public Class FormPrincipal
         '    Exit Sub
         'End If
         Select Case Sensores.Id
-            Case 1
+            Case IdSensor1
                 Sensor1Datatable = Sensores.Listar
 
                 If Sensor1Datatable.Rows.Count > 0 And Sensor1Datatable IsNot Nothing Then
@@ -356,7 +364,7 @@ Public Class FormPrincipal
                 Else
                     bgResultado.Rows.Add("Error1")
                 End If
-            Case 2
+            Case IdSensor2
                 Sensor2Datatable = Sensores.Listar
 
                 If Sensor2Datatable.Rows.Count > 0 And Sensor2Datatable IsNot Nothing Then
@@ -371,7 +379,7 @@ Public Class FormPrincipal
         Select Case bgResultado.Rows(0)(0)
             Case "Ok"
                 Select Case Sensores.Id
-                    Case 1
+                    Case IdSensor1
                         If Iniciando Then
                             Contador1 = Sensor1Datatable.Rows(0)(4)
                             LblContador1.Text = Contador1
@@ -385,10 +393,10 @@ Public Class FormPrincipal
 
                         PbxLoadingSensor1.Hide()
 
-                        Sensores.Id = 2
+                        Sensores.Id = IdSensor2
 
                         IniciaBackgroundworker("ListarSensor")
-                    Case 2
+                    Case IdSensor2
                         If Iniciando Then
                             Contador2 = Sensor2Datatable.Rows(0)(4)
                             LblContador2.Text = Contador2
@@ -455,7 +463,7 @@ Public Class FormPrincipal
     Private Sub TimerListarSensorEstado_Tick(sender As Object, e As EventArgs) Handles TimerHelper.Tick
         Select Case timerOpcion
             Case "ListarSensor"
-                Sensores.Id = 1
+                Sensores.Id = IdSensor1
 
                 IniciaBackgroundworker("ListarSensor")
             Case "Load"
@@ -550,18 +558,9 @@ Public Class FormPrincipal
             If Not String.IsNullOrWhiteSpace(lectura) Then
                 lectura = lectura.Trim
 
-                'If Iniciando Then
-                '    LblContador1.Text = Contador1
-                '    LblContador2.Text = Contador2
-                '    Iniciando = False
-                'End If
-
-                'Select Case lectura.Substring(0, 1)
                 Select Case lectura
-                    Case "A" 'Sensor 1
-                        'If lectura.Length < 2 Then
+                    Case "A" 'Sensor 1 - I0_0
                         ' Sensor dejó de leer (I0_0 en 0V)
-                        'MaximoAlcanzado1 = False
                         TimerTiempoLectura1.Stop()
 
                         If TiempoLecturaTotal1 >= LecturaMinimaProducto Then
@@ -570,103 +569,35 @@ Public Class FormPrincipal
 
                             Select Case Sensor1Estado
                                 Case 1
-                                    RutinaInsertar(1)
+                                    RutinaInsertar(IdSensor1)
                             End Select
                         End If
 
                         TiempoLecturaTotal1 = 0
-
-                        'Else
-                        '    ' Sensor se encuentra leyendo (I0_0 en 24V)
-                        '    If Not MaximoAlcanzado1 Then
-                        '        TimerTiempoLectura1.Enabled = True
-                        '        TimerTiempoLectura1.Start()
-                        '    End If
-
-                        'End If
                     Case "Z"
                         ' Sensor se encuentra leyendo (I0_0 en 24V)
-                        'If Not MaximoAlcanzado1 Then
                         TimerTiempoLectura1.Enabled = True
                         TimerTiempoLectura1.Start()
 
-                        'End If
-                    Case "B" 'Sensor 2
-                        'If lectura.Length < 2 Then
+                    Case "B" 'Sensor 2 - I0_1
                         ' Sensor dejó de leer (I0_1 en 0V)
-                        'MaximoAlcanzado2 = False
                         TimerTiempoLectura2.Stop()
                         If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
 
-                                Contador2 += 1
-                                LblContador2.Text = Contador2
+                            Contador2 += 1
+                            LblContador2.Text = Contador2
 
-                                Select Case Sensor2Estado
-                                    Case 1
-                                    RutinaInsertar(2)
+                            Select Case Sensor2Estado
+                                Case 1
+                                    RutinaInsertar(IdSensor2)
                             End Select
-                            End If
+                        End If
 
-                            TiempoLecturaTotal2 = 0
-                        'Else
-                        '    ' Sensor se encuentra leyendo (I0_1 en 24V)
-                        '    If Not MaximoAlcanzado2 Then
-                        '        TimerTiempoLectura2.Enabled = True
-                        '        TimerTiempoLectura2.Start()
-                        '    End If
-                        'End If
+                        TiempoLecturaTotal2 = 0
                     Case "Y"
                         TimerTiempoLectura2.Enabled = True
                         TimerTiempoLectura2.Start()
-                        'Case Else
-                        '    MuestraMensaje("Error (326)", 2)
-                        '    Console.WriteLine("identificador del sensor desde plc desconocido (326)")
                 End Select
-                'Select Case lectura.Substring(0, 1)
-                '    Case "A" 'Sensor 1
-                '        If Iniciando Then
-                '            LblContador1.Text = lectura.Split(":")(1)
-                '            Iniciando = False
-                '        End If
-
-                '        If lectura.Split(":")(1) <> -1 Then
-                '            ' Sensor dejó de leer (I0_0 en 0V)
-                '            TimerTiempoLectura.Stop()
-
-                '            If TiempoLecturaTotal > LecturaMinimaProducto Then
-                '                TiempoLecturaTotal = 0
-                '                MuestraMensaje("Lectura correcta!", 1)
-                '                LblContador1.Text = lectura.Split(":")(1)
-
-                '                Select Case Sensor1Estado
-                '                    Case 1
-                '                        RutinaInsertar(1)
-                '                End Select
-                '            End If
-                '        Else
-                '            ' Sensor se encuentra leyendo (I0_0 en 24V)
-                '            TimerTiempoLectura.Enabled = True
-                '            TimerTiempoLectura.Start()
-
-                '            'Console.WriteLine($"TiempoLecturaTotal: {TiempoLecturaTotal}")
-                '        End If
-
-                '    Case "B" 'Sensor 2
-                '        If Iniciando Then
-                '            LblContador2.Text = lectura.Split(":")(1)
-                '            Iniciando = False
-                '        End If
-
-                '        LblContador2.Text = lectura.Split(":")(1)
-
-                '        Select Case Sensor2Estado
-                '            Case 1
-                '                RutinaInsertar(2)
-                '        End Select
-                '    Case Else
-                '        MuestraMensaje("Error (326)", 2)
-                '        Console.WriteLine("identificador del sensor desde plc desconocido (326)")
-                'End Select
 
                 LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
             Else
