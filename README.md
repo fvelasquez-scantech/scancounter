@@ -1,3 +1,7 @@
+Anydesk 
+- Contador recepción: scancounter-schile@ad | salmones2015
+- Contador baader: scancounter-2@ad | salmones2015
+
 # scancounter
 Contador de producto con front-end (.NET Framework 4.6.1 - WinForm) y [back-end (.NET 6 WPF)](https://github.com/fvelasquez-scantech/scancounter_backend)
 
