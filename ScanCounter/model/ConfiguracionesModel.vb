@@ -18,19 +18,14 @@ Public Class ConfiguracionesModel
 
         Try
             connection.ConnectionString = Configuration.ConnectionString
-
             command = New SqlCommand("Configuraciones_Listar_SegunId") With {
                 .CommandType = CommandType.StoredProcedure,
                 .Connection = connection
             }
-
             command.Parameters.AddWithValue("@id", Id)
-
             connection.Open()
-
             da.SelectCommand = command
             da.Fill(result)
-
             Return result
         Catch ex As Exception
             result.Columns.Add("Error")

@@ -57,88 +57,88 @@ Public Class FormActivacion
     End Sub
 
     Sub RutinaActivar()
-        Dim claveEncriptada As String = MD5EncryptPass(Serial)
+        'Dim claveEncriptada As String = MD5EncryptPass(Serial)
 
-        'Busca información de licencia según serial encriptado
-        Dim client As New RestClient("http://scantech.cl/api/licencias/read_licence.php?key_certificado=" & claveEncriptada)
+        ''Busca información de licencia según serial encriptado
+        'Dim client As New RestClient("http://scantech.cl/api/licencias/read_licence.php?key_certificado=" & claveEncriptada)
 
-        Dim request = New RestRequest(Method.GET)
-        Dim response As IRestResponse = client.Execute(request)
-        Dim content As String = response.Content
+        'Dim request = New RestRequest(Method.GET)
+        'Dim response As IRestResponse = client.Execute(request)
+        'Dim content As String = response.Content
 
-        If response.StatusCode = HttpStatusCode.OK Then
-            Dim json As JObject = JObject.Parse(content)
+        'If response.StatusCode = HttpStatusCode.OK Then
+        '    Dim json As JObject = JObject.Parse(content)
 
-            Select Case json.SelectToken("Licencia.key_estado")
-                Case "DIS"
-                    'Chequea que total de equipos activos sea menor al disponible
-                    If CInt(json.SelectToken("Licencia.total_activo")) < CInt(json.SelectToken("Licencia.total_equipo")) Then
+        '    Select Case json.SelectToken("Licencia.key_estado")
+        '        Case "DIS"
+        '            'Chequea que total de equipos activos sea menor al disponible
+        '            If CInt(json.SelectToken("Licencia.total_activo")) < CInt(json.SelectToken("Licencia.total_equipo")) Then
 
-                        'Obtiene listado de codigos de productos asignados a esta licencia
-                        client = New RestClient($"http://scantech.cl/api/productos/read_products_by_licence.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
+        '                'Obtiene listado de codigos de productos asignados a esta licencia
+        '                client = New RestClient($"http://scantech.cl/api/productos/read_products_by_licence.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
 
-                        request = New RestRequest(Method.GET)
-                        response = client.Execute(request)
-                        content = response.Content
+        '                request = New RestRequest(Method.GET)
+        '                response = client.Execute(request)
+        '                content = response.Content
 
-                        If response.StatusCode = HttpStatusCode.OK Then
-                            'Listado de productos en objeto json, obtiene primer codigo de producto disponible (activado = 0)
-                            Dim json2 As JObject = JObject.Parse(content)
+        '                If response.StatusCode = HttpStatusCode.OK Then
+        '                    'Listado de productos en objeto json, obtiene primer codigo de producto disponible (activado = 0)
+        '                    Dim json2 As JObject = JObject.Parse(content)
 
-                            Console.WriteLine($"{json2.SelectToken("Productos.0.id_producto")}")
-                            IdProducto = json2.SelectToken("Productos.0.id_producto")
+        '                    Console.WriteLine($"{json2.SelectToken("Productos.0.id_producto")}")
+        '                    IdProducto = json2.SelectToken("Productos.0.id_producto")
 
-                            'Actualiza licencia en producto
-                            client = New RestClient($"http://scantech.cl/api/productos/update_producto_licencia.php?id_producto={IdProducto}&id_licencia={json.SelectToken("Licencia.id_licencia")}")
+        '                    'Actualiza licencia en producto
+        '                    client = New RestClient($"http://scantech.cl/api/productos/update_producto_licencia.php?id_producto={IdProducto}&id_licencia={json.SelectToken("Licencia.id_licencia")}")
 
-                            request = New RestRequest(Method.GET)
-                            response = client.Execute(request)
+        '                    request = New RestRequest(Method.GET)
+        '                    response = client.Execute(request)
 
-                            If response.StatusCode = HttpStatusCode.OK Then
+        '                    If response.StatusCode = HttpStatusCode.OK Then
 
-                                'Actualiza total de equipos activos
-                                client = New RestClient($"http://scantech.cl/api/licencias/update_total_activo.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
+        '                        'Actualiza total de equipos activos
+        '                        client = New RestClient($"http://scantech.cl/api/licencias/update_total_activo.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
 
-                                request = New RestRequest(Method.GET)
-                                response = client.Execute(request)
+        '                        request = New RestRequest(Method.GET)
+        '                        response = client.Execute(request)
 
-                                If response.StatusCode = HttpStatusCode.OK Then
-                                    If CInt(json.SelectToken("Licencia.total_activo")) + 1 = CInt(json.SelectToken("Licencia.total_equipo")) Then
+        '                        If response.StatusCode = HttpStatusCode.OK Then
+        '                            If CInt(json.SelectToken("Licencia.total_activo")) + 1 = CInt(json.SelectToken("Licencia.total_equipo")) Then
 
-                                        ' Actualiza estado de licencia (ACT)
-                                        client = New RestClient($"http://scantech.cl/api/licencias/update_key_estado.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
+        '                                ' Actualiza estado de licencia (ACT)
+        '                                client = New RestClient($"http://scantech.cl/api/licencias/update_key_estado.php?id_licencia={json.SelectToken("Licencia.id_licencia")}")
 
-                                        request = New RestRequest(Method.GET)
-                                        response = client.Execute(request)
+        '                                request = New RestRequest(Method.GET)
+        '                                response = client.Execute(request)
 
-                                        If response.StatusCode = HttpStatusCode.OK Then
-                                            bgwResultado = 1
-                                        Else
-                                            bgwResultado = 9
-                                        End If
-                                    Else
-                                        bgwResultado = 1
-                                    End If
-                                Else
-                                    bgwResultado = 8
-                                End If
-                            Else
-                                bgwResultado = 5
-                            End If
-                        Else
-                            bgwResultado = 7
-                        End If
-                    Else
-                        bgwResultado = 6
-                    End If
-                Case "DES"
-                    bgwResultado = 3
-                Case "ACT"
-                    bgwResultado = 4
-            End Select
-        Else
-            bgwResultado = 2
-        End If
+        '                                If response.StatusCode = HttpStatusCode.OK Then
+        '                                    bgwResultado = 1
+        '                                Else
+        '                                    bgwResultado = 9
+        '                                End If
+        '                            Else
+        '                                bgwResultado = 1
+        '                            End If
+        '                        Else
+        '                            bgwResultado = 8
+        '                        End If
+        '                    Else
+        '                        bgwResultado = 5
+        '                    End If
+        '                Else
+        '                    bgwResultado = 7
+        '                End If
+        '            Else
+        '                bgwResultado = 6
+        '            End If
+        '        Case "DES"
+        '            bgwResultado = 3
+        '        Case "ACT"
+        '            bgwResultado = 4
+        '    End Select
+        'Else
+        '    bgwResultado = 2
+        'End If
     End Sub
     Sub RutinaActivar_Completed()
         Select Case bgwResultado

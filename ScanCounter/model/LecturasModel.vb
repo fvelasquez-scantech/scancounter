@@ -9,11 +9,9 @@ Public Class LecturasModel
 #End Region
 
 #Region "Funciones"
-    Public Async Function Insertar() As Task
+    Public Async Function Insertar() As Task(Of Integer)
         Dim connection As New SqlConnection
         Dim command As SqlCommand
-        'Dim result As Boolean
-
         Try
             connection.ConnectionString = Configuration.ConnectionString
             command = New SqlCommand("Lecturas_Insertar") With {
@@ -22,12 +20,13 @@ Public Class LecturasModel
             }
             command.Parameters.AddWithValue("@id_sensor", IdSensor)
             command.Parameters.AddWithValue("@fecha_insercion", FechaInsercion)
-
             connection.Open()
-
             Await command.ExecuteNonQueryAsync
+            Return 1
         Catch ex As Exception
-            MsgBox(ex.Message)
+            'MsgBox("lecturas model : Insertar() :" & ex.Message)
+            Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
+            Return 0
         Finally
             If connection.State = ConnectionState.Open Then
                 connection.Close()
@@ -62,7 +61,8 @@ Public Class LecturasModel
             'End If
             Return result
         Catch ex As Exception
-            MsgBox(ex.Message)
+            'MsgBox("lecturasmodel:Insertar():" & ex.Message)
+            Trace.WriteLine("lecturasmodel:Insertar():" & ex.Message)
             Return Nothing
         Finally
             If connection.State = ConnectionState.Open Then

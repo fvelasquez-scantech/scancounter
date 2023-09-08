@@ -13,8 +13,8 @@ Public Class FormAutoUpdater
 
     Private LinkDescargaNuevaActualizacion As String
 
-    Private version As String = ""
-    Private nombre As String = ""
+    Private versionProgramaApi As String = ""
+    Private nombreProgramaApi As String = ""
     Private nombreInstalador As String = ""
 
     Delegate Sub myMethodDelegate()
@@ -25,9 +25,7 @@ Public Class FormAutoUpdater
     Private bytesRecibidos As Long = 0
     Private bytesTotales As Long = 0
     Private bytesPorcentaje As Integer = 0
-
     Private IdProducto As String = ""
-
     Private SourcePath As String = "C:\Scantech\data_scancounter_front.xml"
     Private SaveDirectory As String = "C:\Scantech\"
     Private Filename As String = System.IO.Path.GetFileName(SourcePath) 'get the filename of the original file without the directory on it
@@ -69,9 +67,9 @@ Public Class FormAutoUpdater
                 If response.StatusCode = HttpStatusCode.OK Then
                     Dim json As JObject = JObject.Parse(content)
 
-                    version = json.SelectToken("Producto.version")
+                    versionProgramaApi = json.SelectToken("Producto.version")
                     LinkDescargaNuevaActualizacion = json.SelectToken("Producto.link")
-                    nombre = json.SelectToken("Producto.nombre_programa")
+                    nombreProgramaApi = json.SelectToken("Producto.nombre_programa")
                     nombreInstalador = json.SelectToken("Producto.link").ToString.Substring(json.SelectToken("Producto.link").ToString.LastIndexOf("/") + 1)
                     nombreInstalador = nombreInstalador.Substring(0, 16)
                     nombreInstalador += ".msi"

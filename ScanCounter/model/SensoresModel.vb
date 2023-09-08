@@ -35,7 +35,8 @@ Public Class SensoresModel
             'Next
             Return result
         Catch ex As Exception
-            MsgBox($"Error (SensorModel 12) {ex.Message}")
+            'MsgBox($"Error (SensorModel 12) {ex.Message}")
+            Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then

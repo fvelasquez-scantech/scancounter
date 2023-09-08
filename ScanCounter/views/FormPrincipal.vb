@@ -2,6 +2,8 @@
 Imports System.Xml
 Imports Newtonsoft.Json.Linq
 Imports RestSharp
+Imports System.Drawing.Color
+Imports System.Web.Management
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -22,6 +24,7 @@ Public Class FormPrincipal
     Private ConfiguracionesDatatable As DataTable
     Private Sensor1Datatable As DataTable
     Private Sensor2Datatable As DataTable
+    Private registrosOffline As New DataTable
 
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
@@ -29,12 +32,19 @@ Public Class FormPrincipal
     Private DelegadoMensajes As New myMethodDelegate(AddressOf MuestraPanel)
 
     'Variables globales
+    Private conexionDb As Boolean = False
+
+    Private contadorLecturasSinBd As Integer = 0
+
     Private IdSensor1 As Byte = 3
     Private IdSensor2 As Byte = 4
     Private COM As String = ""
     Private PuertoIndex As Byte = 1 'Index para consulta sql
-    Private Contador1 As Integer = 0 'cuenta sensor 1 (identificador A desde arduino)
-    Private Contador2 As Integer = 0 'cuenta sensor 2 (identificador B desde arduino)
+    ' se transformaron  en arreglos ya que necesito que los contadores representen su estado offline el cual sera contadorx(1)
+    Private Contador1 As Integer() = {0, 0} 'cuenta sensor 1 (identificador A desde arduino)
+    Private Contador2 As Integer() = {0, 0} 'cuenta sensor 2 (identificador B desde arduino)
+
+
     Private Sensor1Estado As Byte = 2 'maneja estado del sensor 1 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private Sensor2Estado As Byte = 2 'maneja estado del sensor 2 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private SensorNombreIndex As Byte = 1 'index según consulta sql
@@ -49,6 +59,9 @@ Public Class FormPrincipal
     Private LecturaMaximaProducto As Integer = 0
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
+
+
+
 
 #Region "Constructor"
     Sub New()
@@ -100,8 +113,12 @@ Public Class FormPrincipal
 
         PbxLoading3.BringToFront()
 
-        bgwHelper.WorkerSupportsCancellation = True
 
+        registrosOffline.Columns.Add("sensor", GetType(Integer))
+        registrosOffline.Columns.Add("fecha", GetType(DateTime))
+
+
+        bgwHelper.WorkerSupportsCancellation = True
 
         IniciaBackgroundworker("ValidaLicencia")
     End Sub
@@ -122,8 +139,40 @@ Public Class FormPrincipal
 
         bgResultado = New DataTable
         bgResultado.Columns.Add("Result")
+        'cambiar por un estado de conexion mas que la ejecucion del mismo
 
-        If My.Computer.Network.Ping(Configuration.Server, 3000) Then
+
+        Try
+            conexionDb = My.Computer.Network.Ping(Configuration.Server, 3000)
+            If contadorLecturasSinBd > 0 Then
+                'estilos debueltos
+                Trace.WriteLine("estilos debueltos")
+                contadorLecturasSinBd = 0
+                PanelLoadingS1.ForeColor = Navy
+                PanelLoadingS2.ForeColor = SlateBlue
+                Panel4.ForeColor = SlateBlue
+                Panel1.ForeColor = Navy
+                Panel2.ForeColor = Navy
+                Panel3.ForeColor = Navy
+                Panel5.ForeColor = Navy
+            End If
+        Catch ex As Exception
+            'contadorLecturasSinBd
+            If contadorLecturasSinBd > 6 Then
+                Trace.WriteLine("sinconexion")
+                PanelLoadingS1.ForeColor = Gray
+                PanelLoadingS2.ForeColor = Gray
+                Panel4.ForeColor = Gray
+                Panel1.ForeColor = Gray
+                Panel2.ForeColor = Gray
+                Panel3.ForeColor = Gray
+                Panel5.ForeColor = Gray
+            End If
+            contadorLecturasSinBd += 1
+            conexionDb = False
+        End Try
+
+        If conexionDb Then
             Configuraciones.Id = 2
 
             ConfiguracionesDatatable = Configuraciones.Listar
@@ -182,7 +231,6 @@ Public Class FormPrincipal
             Case "Error1"
                 PbxComStatus.Image = My.Resources.red_dot
                 PbxNetworkStatus.Hide()
-
                 If Not TimerEstado Then
                     TimerEstado = True
                     IniciaTimer("Load")
@@ -251,60 +299,58 @@ Public Class FormPrincipal
 
 #Region "Valida licencia"
     Sub RutinaValidaLicencia()
-        bgwHelperResultado = 0
+        bgwHelperResultado = 1
 
-        If Not IO.File.Exists(Configuration.SourcePath) Then
-            bgwHelperResultado = 2
-        Else
-            Dim XmlDoc As XmlDocument = New XmlDocument()
+        'If Not IO.File.Exists(Configuration.SourcePath) Then
+        '    bgwHelperResultado = 2
+        'Else
+        '    Dim XmlDoc As XmlDocument = New XmlDocument()
+        '    XmlDoc.Load(Configuration.SavePath)
+        '    If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
+        '        IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
+        '        Console.WriteLine($"IdProducto {IdProducto}")
 
-            XmlDoc.Load(Configuration.SavePath)
+        '        ' Lee licencia segun el id del producto
+        '        Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
 
-            If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
-                IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
-                Console.WriteLine($"IdProducto {IdProducto}")
+        '        Dim request = New RestRequest(Method.GET)
+        '        Dim response As IRestResponse = client.Execute(request)
+        '        Dim content As String = response.Content
 
-                ' Lee licencia segun el id del producto
-                Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
+        '        If response.StatusCode = HttpStatusCode.OK Then
+        '            Dim json As JObject = JObject.Parse(content)
 
-                Dim request = New RestRequest(Method.GET)
-                Dim response As IRestResponse = client.Execute(request)
-                Dim content As String = response.Content
+        '            '¿Licencia está activa? (key_estado ACT || DIS)
+        '            Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
+        '            Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
 
-                If response.StatusCode = HttpStatusCode.OK Then
-                    Dim json As JObject = JObject.Parse(content)
+        '            Dim result As String = json.SelectToken("Licencia.key_estado").ToString
 
-                    '¿Licencia está activa? (key_estado ACT || DIS)
-                    Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
-                    Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
+        '            Select Case result
+        '            'Case "DIS"
+        '            '    bgwHelperResultado = 2
+        '                Case "DES"
+        '                    bgwHelperResultado = 3
+        '                Case "ACT", "DIS"
+        '                    Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
+        '                    Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
+        '                        Case "PRO"
+        '                            bgwHelperResultado = 1
+        '                        Case "STANDAR"
+        '                            Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
 
-                    Dim result As String = json.SelectToken("Licencia.key_estado").ToString
+        '                            Dim desface As Long = DateDiff("d", fechaActivacion, Now)
 
-                    Select Case result
-                    'Case "DIS"
-                    '    bgwHelperResultado = 2
-                        Case "DES"
-                            bgwHelperResultado = 3
-                        Case "ACT", "DIS"
-                            Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
-                            Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
-                                Case "PRO"
-                                    bgwHelperResultado = 1
-                                Case "STANDAR"
-                                    Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
-
-                                    Dim desface As Long = DateDiff("d", fechaActivacion, Now)
-
-                                    If desface >= 7 Then
-                                        bgwHelperResultado = 4
-                                    End If
-                            End Select
-                    End Select
-                End If
-            Else
-                bgwHelperResultado = 2
-            End If
-        End If
+        '                            If desface >= 7 Then
+        '                                bgwHelperResultado = 4
+        '                            End If
+        '                    End Select
+        '            End Select
+        '        End If
+        '    Else
+        '        bgwHelperResultado = 2
+        '    End If
+        'End If
     End Sub
     Sub RutinaValidaLicencia_Completed()
         Select Case bgwHelperResultado
@@ -381,8 +427,8 @@ Public Class FormPrincipal
                 Select Case Sensores.Id
                     Case IdSensor1
                         If Iniciando Then
-                            Contador1 = Sensor1Datatable.Rows(0)(4)
-                            LblContador1.Text = Contador1
+                            Contador1(0) = Sensor1Datatable.Rows(0)(4)
+                            LblContador1.Text = Contador1(0)
                             AcomodaLabel("Contador1")
                         End If
 
@@ -398,8 +444,8 @@ Public Class FormPrincipal
                         IniciaBackgroundworker("ListarSensor")
                     Case IdSensor2
                         If Iniciando Then
-                            Contador2 = Sensor2Datatable.Rows(0)(4)
-                            LblContador2.Text = Contador2
+                            Contador2(0) = Sensor2Datatable.Rows(0)(4)
+                            LblContador2.Text = Contador2(0)
                             AcomodaLabel("Contador2")
                         End If
 
@@ -423,8 +469,8 @@ Public Class FormPrincipal
                                     'EnviaCaracterArduino("c") 'Reset de contador y lo pone en pausa para no realizar conteo
                                     EnviaCaracterArduino("b") 'Reset de contador y lo pone en pausa para no realizar conteo
 
-                                    Contador1 = 0
-                                    LblContador1.Text = Contador1
+                                    Contador1(0) = 0
+                                    LblContador1.Text = Contador1(0)
                                     AcomodaLabel("Contador1")
                             End Select
 
@@ -437,8 +483,8 @@ Public Class FormPrincipal
                                     'EnviaCaracterArduino("f") 'Reset de contador y lo pone en pausa para no realizar conteo
                                     EnviaCaracterArduino("e") 'Reset de contador y lo pone en pausa para no realizar conteo
 
-                                    Contador2 = 0
-                                    LblContador2.Text = Contador2
+                                    Contador2(0) = 0
+                                    LblContador2.Text = Contador2(0)
                                     AcomodaLabel("Contador2")
                             End Select
 
@@ -474,15 +520,29 @@ Public Class FormPrincipal
 #End Region
 
 #Region "Insertar lectura"
-    Public Async Function InsertarAsync() As Task
-        Await Lecturas.Insertar
-    End Function
     Async Sub RutinaInsertar(IdSensor As Integer)
         Lecturas.IdSensor = IdSensor
         Lecturas.FechaInsercion = Now
 
         Await InsertarAsync()
     End Sub
+    Public Async Function InsertarAsync() As Task
+        Dim respuesta = Await Lecturas.Insertar
+        If respuesta = 0 Then ' retorna con error, si este ya tiene el erro entonces ahora se debe configurar la vista
+            'Error DataGridViewElement registro se debe contar
+            Dim row As DataRow = registrosOffline.NewRow
+            row(0) = Lecturas.IdSensor
+            row(1) = Lecturas.FechaInsercion
+            registrosOffline.Rows.Add(row)
+        End If
+    End Function
+
+    Public Async Function InsertarConteoOffline() As Task
+
+
+    End Function
+
+
 #End Region
 
 #Region "Timer para controlar tiempo de lectura de cada producto"
@@ -514,7 +574,7 @@ Public Class FormPrincipal
         Try
             With SerialPort1
                 .PortName = puerto
-                .BaudRate = 9600
+                .BaudRate = 115200
                 .DataBits = 8
                 .Parity = IO.Ports.Parity.None
                 .StopBits = IO.Ports.StopBits.One
@@ -564,13 +624,15 @@ Public Class FormPrincipal
                         TimerTiempoLectura1.Stop()
 
                         If TiempoLecturaTotal1 >= LecturaMinimaProducto Then
-                            Contador1 += 1
-                            LblContador1.Text = Contador1
 
                             Select Case Sensor1Estado
                                 Case 1
                                     RutinaInsertar(IdSensor1)
                             End Select
+                            If conexionDb Then
+                                Contador1(0) += 1
+                                LblContador1.Text = Contador1(0)
+                            End If
                         End If
 
                         TiempoLecturaTotal1 = 0
@@ -584,13 +646,17 @@ Public Class FormPrincipal
                         TimerTiempoLectura2.Stop()
                         If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
 
-                            Contador2 += 1
-                            LblContador2.Text = Contador2
 
                             Select Case Sensor2Estado
                                 Case 1
                                     RutinaInsertar(IdSensor2)
                             End Select
+                            If conexionDb Then
+                                Contador2(0) += 1
+                                LblContador2.Text = Contador2(0)
+                            Else
+                                'iniciar el modo offline o contar en 1 pero el otro dejarlo para el modo offline
+                            End If
                         End If
 
                         TiempoLecturaTotal2 = 0
