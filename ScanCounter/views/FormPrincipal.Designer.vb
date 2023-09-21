@@ -60,6 +60,7 @@ Partial Class FormPrincipal
         Me.TimerUpdater = New System.Windows.Forms.Timer(Me.components)
         Me.TimerTiempoLectura1 = New System.Windows.Forms.Timer(Me.components)
         Me.TimerTiempoLectura2 = New System.Windows.Forms.Timer(Me.components)
+        Me.bgwListar = New System.ComponentModel.BackgroundWorker()
         Me.Panel4.SuspendLayout()
         CType(Me.PbxNetworkStatus, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.PbxComStatus, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -520,4 +521,5 @@ Partial Class FormPrincipal
     Friend WithEvents LblLectura1 As Label
     Friend WithEvents TimerTiempoLectura2 As Timer
     Friend WithEvents LblLectura2 As Label
+    Friend WithEvents bgwListar As System.ComponentModel.BackgroundWorker
 End Class

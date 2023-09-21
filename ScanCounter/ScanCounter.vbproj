@@ -123,6 +123,7 @@
   <ItemGroup>
     <EmbeddedResource Include="views\FormActivacion.resx">
       <DependentUpon>FormActivacion.vb</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="views\FormPrincipal.resx">
       <DependentUpon>FormPrincipal.vb</DependentUpon>

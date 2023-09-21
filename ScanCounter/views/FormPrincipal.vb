@@ -4,6 +4,8 @@ Imports Newtonsoft.Json.Linq
 Imports RestSharp
 Imports System.Drawing.Color
 Imports System.Web.Management
+Imports System.Data.SqlClient
+Imports System.ComponentModel
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -143,33 +145,41 @@ Public Class FormPrincipal
 
 
         Try
-            conexionDb = My.Computer.Network.Ping(Configuration.Server, 3000)
+            conexionDb = My.Computer.Network.Ping(Configuration.Server, 100)
             If contadorLecturasSinBd > 0 Then
                 'estilos debueltos
-                Trace.WriteLine("estilos debueltos")
+                'Trace.WriteLine("estilos debueltos")
                 contadorLecturasSinBd = 0
-                PanelLoadingS1.ForeColor = Navy
-                PanelLoadingS2.ForeColor = SlateBlue
-                Panel4.ForeColor = SlateBlue
-                Panel1.ForeColor = Navy
-                Panel2.ForeColor = Navy
-                Panel3.ForeColor = Navy
-                Panel5.ForeColor = Navy
+                PanelLoadingS1.BackColor = Navy
+                PanelLoadingS2.BackColor = SlateBlue
+                Panel4.BackColor = SlateBlue
             End If
         Catch ex As Exception
             'contadorLecturasSinBd
             If contadorLecturasSinBd > 6 Then
-                Trace.WriteLine("sinconexion")
-                PanelLoadingS1.ForeColor = Gray
-                PanelLoadingS2.ForeColor = Gray
-                Panel4.ForeColor = Gray
-                Panel1.ForeColor = Gray
-                Panel2.ForeColor = Gray
-                Panel3.ForeColor = Gray
-                Panel5.ForeColor = Gray
+                'Trace.WriteLine("sinconexion")
+                PanelLoadingS1.BackColor = Gray
+                PanelLoadingS2.BackColor = LightSlateGray
+                Panel4.BackColor = SteelBlue
             End If
             contadorLecturasSinBd += 1
             conexionDb = False
+            Trace.WriteLine("catchcone")
+        Catch exql As SqlException
+            'contadorLecturasSinBd
+            If contadorLecturasSinBd > 6 Then
+                'Trace.WriteLine("sinconexion")
+                PanelLoadingS1.BackColor = Gray
+                PanelLoadingS2.BackColor = LightSlateGray
+                Panel4.BackColor = SteelBlue
+                'Panel1.BackColor = Gray
+                'Panel2.BackColor = Gray
+                'Panel3.BackColor = Gray
+                'Panel5.BackColor = Gray
+            End If
+            contadorLecturasSinBd += 1
+            conexionDb = False
+            Trace.WriteLine("catchconesql")
         End Try
 
         If conexionDb Then
@@ -237,7 +247,7 @@ Public Class FormPrincipal
                 End If
 
                 MuestraMensaje("Error 127", 2)
-                Console.WriteLine("No hay datos en configuraciones")
+                'Console.WriteLine("No hay datos en configuraciones")
             Case "Error"
                 PbxComStatus.Image = My.Resources.red_dot
                 PbxNetworkStatus.Hide()
@@ -248,7 +258,7 @@ Public Class FormPrincipal
                 End If
 
                 MuestraMensaje("Error 136", 2)
-                Console.WriteLine("Error al intentar conectar el serialport")
+                'Console.WriteLine("Error al intentar conectar el serialport")
             Case "Error2"
                 PbxComStatus.Image = My.Resources.red_dot
                 PbxNetworkStatus.Hide()
@@ -259,13 +269,13 @@ Public Class FormPrincipal
                 End If
 
                 MuestraMensaje("Error 145", 2)
-                Console.WriteLine("Sin conexión al server")
+                'Console.WriteLine("Sin conexión al server")
             Case "Error3"
                 MuestraMensaje("Error 190", 2)
-                Console.WriteLine("No se pudo actualizar actualizacion_disponible a true")
+                'Console.WriteLine("No se pudo actualizar actualizacion_disponible a true")
             Case "Error4"
                 MuestraMensaje("Error 197", 2)
-                Console.WriteLine("No se pudo actualizar actualizacion_disponible a false")
+                'Console.WriteLine("No se pudo actualizar actualizacion_disponible a false")
         End Select
     End Sub
 
@@ -384,12 +394,12 @@ Public Class FormPrincipal
         If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
             If ConfiguracionesDatatable.Rows(0)(4) <> LecturaMinimaProducto Then 'si es distinto a lo asignado en load
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
-                Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
+                'Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
             End If
 
             If ConfiguracionesDatatable.Rows(0)(5) <> LecturaMaximaProducto Then
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
-                Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
+                'Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
             End If
 
         End If
@@ -426,13 +436,15 @@ Public Class FormPrincipal
             Case "Ok"
                 Select Case Sensores.Id
                     Case IdSensor1
-                        If Iniciando Then
-                            Contador1(0) = Sensor1Datatable.Rows(0)(4)
+                        'If Iniciando Then
+                        Contador1(0) = Sensor1Datatable.Rows(0)(4)
                             LblContador1.Text = Contador1(0)
                             AcomodaLabel("Contador1")
-                        End If
+                        'End If
 
                         LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
+
+
                         LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
                         Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
@@ -443,11 +455,11 @@ Public Class FormPrincipal
 
                         IniciaBackgroundworker("ListarSensor")
                     Case IdSensor2
-                        If Iniciando Then
-                            Contador2(0) = Sensor2Datatable.Rows(0)(4)
+                        'If Iniciando Then
+                        Contador2(0) = Sensor2Datatable.Rows(0)(4)
                             LblContador2.Text = Contador2(0)
                             AcomodaLabel("Contador2")
-                        End If
+                        'End If
 
                         LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
                         LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
@@ -471,6 +483,7 @@ Public Class FormPrincipal
 
                                     Contador1(0) = 0
                                     LblContador1.Text = Contador1(0)
+
                                     AcomodaLabel("Contador1")
                             End Select
 
@@ -491,17 +504,34 @@ Public Class FormPrincipal
                             Iniciando = False
                         End If
                 End Select
+
+                Dim cont1 As Integer = 0
+                Dim cont2 As Integer = 0
+                If LblContador1.Text = "" Then
+                    cont1 = 0
+                Else
+                    cont1 = CInt(LblContador1.Text)
+                End If
+
+                If LblContador2.Text = "" Then
+                    cont2 = 0
+                Else
+                    cont2 = CInt(LblContador2.Text)
+                End If
+                LblTotal.Text = "" & (Contador1(0) + Contador2(0)) & " Pzs"
+
             Case "Error1"
                 MuestraMensaje("Error 220", 2)
-                Console.WriteLine("Error listando sensor 1")
+                'Console.WriteLine("Error listando sensor 1")
             Case "Error2"
                 MuestraMensaje("Error 223", 2)
-                Console.WriteLine("Error listando sensor 2")
+                'Console.WriteLine("Error listando sensor 2")
                 'Case "Update"
                 '    EjecutarComando("C:\Scantech\ScanUpdater.exe")
 
                 '    Close()
         End Select
+        Trace.WriteLine("terminar de listar")
     End Sub
 #End Region
 
@@ -525,8 +555,9 @@ Public Class FormPrincipal
         Lecturas.FechaInsercion = Now
 
         Await InsertarAsync()
+
     End Sub
-    Public Async Function InsertarAsync() As Task
+    Public Async Function InsertarAsync() As Task(Of Integer)
         Dim respuesta = Await Lecturas.Insertar
         If respuesta = 0 Then ' retorna con error, si este ya tiene el erro entonces ahora se debe configurar la vista
             'Error DataGridViewElement registro se debe contar
@@ -535,21 +566,15 @@ Public Class FormPrincipal
             row(1) = Lecturas.FechaInsercion
             registrosOffline.Rows.Add(row)
         End If
+        Return respuesta
     End Function
-
-    Public Async Function InsertarConteoOffline() As Task
-
-
-    End Function
-
-
 #End Region
 
 #Region "Timer para controlar tiempo de lectura de cada producto"
     Private Sub TimerTiempoLectura_Tick(sender As Object, e As EventArgs) Handles TimerTiempoLectura1.Tick
         'If TiempoLecturaTotal1 < LecturaMaximaProducto Then
         TiempoLecturaTotal1 += TimerTiempoLectura1.Interval
-            LblLectura1.Text = TiempoLecturaTotal1
+        LblLectura1.Text = TiempoLecturaTotal1
         'Else
         '    TimerTiempoLectura1.Stop()
         'MaximoAlcanzado1 = True
@@ -558,7 +583,7 @@ Public Class FormPrincipal
     Private Sub TimerTiempoLectura2_Tick(sender As Object, e As EventArgs) Handles TimerTiempoLectura2.Tick
         'If TiempoLecturaTotal2 < LecturaMaximaProducto Then
         TiempoLecturaTotal2 += TimerTiempoLectura2.Interval
-            LblLectura2.Text = TiempoLecturaTotal2
+        LblLectura2.Text = TiempoLecturaTotal2
         'Else
         '    TimerTiempoLectura2.Stop()
         '    MaximoAlcanzado2 = True
@@ -579,9 +604,7 @@ Public Class FormPrincipal
                 .Parity = IO.Ports.Parity.None
                 .StopBits = IO.Ports.StopBits.One
                 .Handshake = IO.Ports.Handshake.None
-
                 .Open()
-
                 If SerialPort1.IsOpen Then
                     result = True
                 Else
@@ -617,23 +640,22 @@ Public Class FormPrincipal
             'Console.WriteLine($"{lectura}")
             If Not String.IsNullOrWhiteSpace(lectura) Then
                 lectura = lectura.Trim
-
+                'Trace.WriteLine("lectura:" & lectura)
                 Select Case lectura
                     Case "A" 'Sensor 1 - I0_0
                         ' Sensor dejó de leer (I0_0 en 0V)
                         TimerTiempoLectura1.Stop()
+                        'Trace.WriteLine("lec min " & LecturaMinimaProducto & " / lect total " & TiempoLecturaTotal1)
+                        'If TiempoLecturaTotal1 >= LecturaMinimaProducto Then ' este formulario no existe
+                        'Trace.WriteLine("l")
+                        Select Case Sensor1Estado
+                            Case 1
+                                'Trace.WriteLine("l")
+                                RutinaInsertar(IdSensor1)
+                        End Select
+                        Trace.WriteLine(conexionDb)
 
-                        If TiempoLecturaTotal1 >= LecturaMinimaProducto Then
-
-                            Select Case Sensor1Estado
-                                Case 1
-                                    RutinaInsertar(IdSensor1)
-                            End Select
-                            If conexionDb Then
-                                Contador1(0) += 1
-                                LblContador1.Text = Contador1(0)
-                            End If
-                        End If
+                        'End If
 
                         TiempoLecturaTotal1 = 0
                     Case "Z"
@@ -644,20 +666,12 @@ Public Class FormPrincipal
                     Case "B" 'Sensor 2 - I0_1
                         ' Sensor dejó de leer (I0_1 en 0V)
                         TimerTiempoLectura2.Stop()
-                        If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
-
-
-                            Select Case Sensor2Estado
-                                Case 1
-                                    RutinaInsertar(IdSensor2)
-                            End Select
-                            If conexionDb Then
-                                Contador2(0) += 1
-                                LblContador2.Text = Contador2(0)
-                            Else
-                                'iniciar el modo offline o contar en 1 pero el otro dejarlo para el modo offline
-                            End If
-                        End If
+                        'If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
+                        Select Case Sensor2Estado
+                            Case 1
+                                RutinaInsertar(IdSensor2)
+                        End Select
+                        'End If
 
                         TiempoLecturaTotal2 = 0
                     Case "Y"
@@ -668,7 +682,7 @@ Public Class FormPrincipal
                 LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
             Else
                 MuestraMensaje("Error 332", 2)
-                Console.WriteLine("lectura desde SerialPort con error (332)")
+                'Console.WriteLine("lectura desde SerialPort con error (332)")
             End If
 
             'Mueve texto del contador para centrarlo
@@ -734,7 +748,7 @@ Public Class FormPrincipal
 
         If bgwHelper.IsBusy Then
             MuestraMensaje($"Error 353", 2)
-            Console.WriteLine($"Proceso aún en marcha")
+            'Console.WriteLine($"Proceso aún en marcha")
             bgwHelper.CancelAsync()
         Else
             bgwHelper.RunWorkerAsync()
@@ -755,16 +769,16 @@ Public Class FormPrincipal
             Catch ex As Exception
                 DisconnectPort()
                 MuestraMensaje($"Error 374", 2)
-                Console.WriteLine("Serialport is with error, system will reboot")
+                'Console.WriteLine("Serialport is with error, system will reboot")
             End Try
         Else
             MuestraMensaje("Error 378", 2)
-            Console.WriteLine("Serialport is closed")
+            'Console.WriteLine("Serialport is closed")
         End If
     End Sub
 
     Sub MuestraMensaje(Mensaje As String, Tipo As Byte)
-        Console.WriteLine($"Mensaje {Mensaje}")
+        'Console.WriteLine($"Mensaje {Mensaje}")
         LblError.Text = Mensaje
         If Tipo = 1 Then
             PanelError.BackColor = Color.Green
@@ -792,6 +806,17 @@ Public Class FormPrincipal
         p.StartInfo = startInfo
         p.Start()
     End Sub
+
+    'Private Sub bgwListar_DoWork(sender As Object, e As DoWorkEventArgs) Handles bgwListar.DoWork
+
+    'End Sub
+
+    'Private Sub bgwListar_RunWorkerCompleted(sender As Object, e As RunWorkerCompletedEventArgs) Handles bgwListar.RunWorkerCompleted
+    '    If Not bgwListar.IsBusy Then
+
+    '    End If
+
+    'End Sub
 
 
 
