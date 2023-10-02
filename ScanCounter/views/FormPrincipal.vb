@@ -399,7 +399,9 @@ Public Class FormPrincipal
         Select Case bgwHelperResultado
             Case 0
                 Cursor.Show()
-                MsgBox("Error (RutinaValidaLicencia 232)")
+                'MsgBox("Error (RutinaValidaLicencia 232)")
+
+                MuestraMensaje("Error LIC 232", 2)
             Case 1
                 IniciaBackgroundworker("Load")
             Case 2
