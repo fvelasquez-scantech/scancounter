@@ -30,12 +30,8 @@ Public Class SensoresModel
 
             da.SelectCommand = command
             da.Fill(result)
-            'For Each r In result.Rows
-            '    Console.WriteLine(r(0))
-            'Next
             Return result
         Catch ex As Exception
-            'MsgBox($"Error (SensorModel 12) {ex.Message}")
             Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
             Return result
         Finally

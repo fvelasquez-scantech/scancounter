@@ -1,4 +1,5 @@
 ﻿Imports System.Data.SqlClient
+Imports System.Web.Caching
 
 Public Class LecturasModel
 
@@ -6,6 +7,14 @@ Public Class LecturasModel
     Public Property Id As Integer
     Public Property IdSensor As Integer
     Public Property FechaInsercion As Date
+
+
+    Private Shared ReadOnly comandoCreacionTablaTemporalProductos As String =
+                                "CREATE TABLE ##insertar_lecturas_temp(
+                                    [id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED , 
+                                     [idSensor] [int] NULL,
+                                     [fecha_insercion] [datetime] NULL
+                                   )"
 #End Region
 
 #Region "Funciones"
@@ -24,7 +33,6 @@ Public Class LecturasModel
             Await command.ExecuteNonQueryAsync
             Return 1
         Catch ex As Exception
-            'MsgBox("lecturas model : Insertar() :" & ex.Message)
             Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
             Return 0
         Finally
@@ -33,37 +41,44 @@ Public Class LecturasModel
             End If
         End Try
     End Function
-
-    Public Async Function Listar() As Task(Of DataTable)
+    'este procedimiento solo tiene un numero como respuesta y 
+    Public Shared Function InsertarLecturaOffline(dt As DataTable) As Integer
         Dim connection As New SqlConnection
-        Dim command As SqlCommand
+        Dim tbl As New DataTable
+        Dim command As New SqlCommand
+        Dim reader As SqlDataReader
         Dim result As New DataTable
-        Dim da As New SqlDataAdapter
-        'Dim result As Boolean
-
+        Dim resp As New Integer
+        resp = 0
         Try
+
             connection.ConnectionString = Configuration.ConnectionString
-            command = New SqlCommand("Lecturas_Insertar") With {
+            connection.Open()
+            command.CommandText = comandoCreacionTablaTemporalProductos
+            command.Connection = connection
+            command.ExecuteNonQuery()
+            Using s As SqlBulkCopy = New SqlBulkCopy(connection)
+                s.DestinationTableName = "##insertar_lecturas_temp"
+                s.BatchSize = dt.Rows.Count
+                s.ColumnMappings.Add("id", "id")
+                s.ColumnMappings.Add("idSensor", "idSensor")
+                s.ColumnMappings.Add("fecha_insercion", "fecha_insercion")
+                s.WriteToServer(dt)
+                s.Close()
+            End Using
+
+            command = New SqlCommand("Lecturas_InsertarOffline") With {
                 .CommandType = CommandType.StoredProcedure,
                 .Connection = connection
             }
-            command.Parameters.AddWithValue("@id_sensor", IdSensor)
-            command.Parameters.AddWithValue("@fecha_insercion", FechaInsercion)
-
-            Await connection.OpenAsync()
-
-            da.SelectCommand = command
-            da.Fill(result)
-            'reader = Await command.ExecuteReaderAsync
-
-            'If Await reader.ReadAsync Then
-
-            'End If
-            Return result
+            reader = command.ExecuteReader()
+            While reader.Read()
+                resp = reader.GetValue(0)
+            End While
+            Return resp
         Catch ex As Exception
-            'MsgBox("lecturasmodel:Insertar():" & ex.Message)
-            Trace.WriteLine("lecturasmodel:Insertar():" & ex.Message)
-            Return Nothing
+            Trace.WriteLine($"Error BalanzaInformacion 617: {ex.Message}")
+            Return resp
         Finally
             If connection.State = ConnectionState.Open Then
                 connection.Close()

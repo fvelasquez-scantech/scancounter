@@ -6,6 +6,9 @@ Imports System.Drawing.Color
 Imports System.Web.Management
 Imports System.Data.SqlClient
 Imports System.ComponentModel
+Imports System.Web.ModelBinding
+Imports System.Runtime.Remoting.Messaging
+Imports System.Runtime.InteropServices
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -40,12 +43,14 @@ Public Class FormPrincipal
 
     Private IdSensor1 As Byte = 3
     Private IdSensor2 As Byte = 4
-    Private COM As String = ""
+    Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
     ' se transformaron  en arreglos ya que necesito que los contadores representen su estado offline el cual sera contadorx(1)
     Private Contador1 As Integer() = {0, 0} 'cuenta sensor 1 (identificador A desde arduino)
     Private Contador2 As Integer() = {0, 0} 'cuenta sensor 2 (identificador B desde arduino)
 
+
+    Private SensorOfflineRegDataTable As DataTable
 
     Private Sensor1Estado As Byte = 2 'maneja estado del sensor 1 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private Sensor2Estado As Byte = 2 'maneja estado del sensor 2 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
@@ -57,8 +62,10 @@ Public Class FormPrincipal
     Private Iniciando As Boolean = False
     Private TiempoLecturaTotal1 As Integer = 0
     Private TiempoLecturaTotal2 As Integer = 0
-    Private LecturaMinimaProducto As Integer = 0
-    Private LecturaMaximaProducto As Integer = 0
+    'en offline segun velocidad  de cinta estas son las que deberian por defecto
+    Private LecturaMinimaProducto As Integer = 500 'valores predeterminados minimos
+    Private LecturaMaximaProducto As Integer = 3000 'valor predeterminado maximo 
+
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
 
@@ -76,6 +83,8 @@ Public Class FormPrincipal
         Sensores = New SensoresModel
         Lecturas = New LecturasModel
         Wrapper = New SecurityWrapper
+        AddHandler TimerOffline.Tick, AddressOf TimerOffline_Tick
+        AddHandler TimerRed.Tick, AddressOf TimerRed_tick ' unico tick constante, el resto se llama por eventos
     End Sub
 #End Region
 
@@ -104,6 +113,7 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        TimerRed.Start()
         Iniciando = True
         Cursor.Hide()
 
@@ -115,10 +125,9 @@ Public Class FormPrincipal
 
         PbxLoading3.BringToFront()
 
-
-        registrosOffline.Columns.Add("sensor", GetType(Integer))
-        registrosOffline.Columns.Add("fecha", GetType(DateTime))
-
+        registrosOffline.Columns.Add("id", GetType(Integer))
+        registrosOffline.Columns.Add("idSensor", GetType(Integer))
+        registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
 
         bgwHelper.WorkerSupportsCancellation = True
 
@@ -143,45 +152,6 @@ Public Class FormPrincipal
         bgResultado.Columns.Add("Result")
         'cambiar por un estado de conexion mas que la ejecucion del mismo
 
-
-        Try
-            conexionDb = My.Computer.Network.Ping(Configuration.Server, 100)
-            If contadorLecturasSinBd > 0 Then
-                'estilos debueltos
-                'Trace.WriteLine("estilos debueltos")
-                contadorLecturasSinBd = 0
-                PanelLoadingS1.BackColor = Navy
-                PanelLoadingS2.BackColor = SlateBlue
-                Panel4.BackColor = SlateBlue
-            End If
-        Catch ex As Exception
-            'contadorLecturasSinBd
-            If contadorLecturasSinBd > 6 Then
-                'Trace.WriteLine("sinconexion")
-                PanelLoadingS1.BackColor = Gray
-                PanelLoadingS2.BackColor = LightSlateGray
-                Panel4.BackColor = SteelBlue
-            End If
-            contadorLecturasSinBd += 1
-            conexionDb = False
-            Trace.WriteLine("catchcone")
-        Catch exql As SqlException
-            'contadorLecturasSinBd
-            If contadorLecturasSinBd > 6 Then
-                'Trace.WriteLine("sinconexion")
-                PanelLoadingS1.BackColor = Gray
-                PanelLoadingS2.BackColor = LightSlateGray
-                Panel4.BackColor = SteelBlue
-                'Panel1.BackColor = Gray
-                'Panel2.BackColor = Gray
-                'Panel3.BackColor = Gray
-                'Panel5.BackColor = Gray
-            End If
-            contadorLecturasSinBd += 1
-            conexionDb = False
-            Trace.WriteLine("catchconesql")
-        End Try
-
         If conexionDb Then
             Configuraciones.Id = 2
 
@@ -190,12 +160,8 @@ Public Class FormPrincipal
             If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
 
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
-                Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
-                Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
-
                 COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
-
                 Console.WriteLine($"Iniciando conexión al puerto {COM}")
 
                 If ConnectPort(COM) Then
@@ -218,6 +184,71 @@ Public Class FormPrincipal
             bgResultado.Rows.Add("Error2")
         End If
     End Sub
+
+    Private Sub TimerOffline_Tick(sender As Object, e As EventArgs)
+        If TimerOffline.Enabled = True Then
+            TimerOffline.Stop()
+        End If
+        If conexionDb Then
+            If registrosOffline.Rows.Count > 0 Then
+                Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
+                If resp = 1 Then
+                    registrosOffline.Clear()
+                Else
+                    TimerOffline.Start()
+                End If
+            End If
+        Else
+            TimerOffline.Start()
+        End If
+    End Sub
+
+    Private Async Sub TimerRed_tick(sender As Object, e As EventArgs)
+
+        Try
+            Dim pings = New System.Net.NetworkInformation.Ping()
+            Dim reply = Await pings.SendPingAsync(Configuration.Server, 100)
+            If reply.Status = System.Net.NetworkInformation.IPStatus.Success Then
+                conexionDb = True
+                contadorLecturasSinBd = 0
+            Else
+                conexionDb = False
+                If contadorLecturasSinBd < 6 Then
+                    contadorLecturasSinBd += 1
+                End If
+            End If
+        Catch ex As Exception
+            conexionDb = False
+            If contadorLecturasSinBd < 6 Then
+                contadorLecturasSinBd += 1
+            End If
+        End Try
+
+        If contadorLecturasSinBd = 6 Then
+            If TimerOffline.Enabled = False Then
+                TimerOffline.Start()
+                Trace.WriteLine("timer offline iniciado")
+            End If
+            PanelLoadingS1.BackColor = Gray
+            PanelLoadingS2.BackColor = LightSlateGray
+            Panel4.BackColor = CadetBlue
+            PbxNetworkStatus.Show()
+        Else
+            PbxNetworkStatus.Hide()
+            PanelLoadingS1.BackColor = Navy
+            PanelLoadingS2.BackColor = SlateBlue
+            Panel4.BackColor = SteelBlue
+        End If
+        'Trace.WriteLine("ping " & conexionDb & " contador " & contadorLecturasSinBd)
+
+        If registrosOffline IsNot Nothing Then
+            If registrosOffline.Rows.Count > 0 Then
+                Trace.WriteLine("conteo oofline  por mientras" & registrosOffline.Rows.Count)
+            End If
+        End If
+
+    End Sub
+
     Sub RutinaLoad_Completed()
         Select Case bgResultado.Rows(0)(0)
             Case "Ok"
@@ -277,6 +308,8 @@ Public Class FormPrincipal
                 MuestraMensaje("Error 197", 2)
                 'Console.WriteLine("No se pudo actualizar actualizacion_disponible a false")
         End Select
+
+
     End Sub
 
     Function ChequeaNuevaVersionEnApi() As Boolean
@@ -438,8 +471,8 @@ Public Class FormPrincipal
                     Case IdSensor1
                         'If Iniciando Then
                         Contador1(0) = Sensor1Datatable.Rows(0)(4)
-                            LblContador1.Text = Contador1(0)
-                            AcomodaLabel("Contador1")
+                        LblContador1.Text = Contador1(0)
+                        AcomodaLabel("Contador1")
                         'End If
 
                         LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
@@ -457,8 +490,8 @@ Public Class FormPrincipal
                     Case IdSensor2
                         'If Iniciando Then
                         Contador2(0) = Sensor2Datatable.Rows(0)(4)
-                            LblContador2.Text = Contador2(0)
-                            AcomodaLabel("Contador2")
+                        LblContador2.Text = Contador2(0)
+                        AcomodaLabel("Contador2")
                         'End If
 
                         LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
@@ -507,15 +540,11 @@ Public Class FormPrincipal
 
                 Dim cont1 As Integer = 0
                 Dim cont2 As Integer = 0
-                If LblContador1.Text = "" Then
-                    cont1 = 0
-                Else
+                If LblContador1.Text <> "" Then
                     cont1 = CInt(LblContador1.Text)
                 End If
 
-                If LblContador2.Text = "" Then
-                    cont2 = 0
-                Else
+                If LblContador2.Text <> "" Then
                     cont2 = CInt(LblContador2.Text)
                 End If
                 LblTotal.Text = "" & (Contador1(0) + Contador2(0)) & " Pzs"
@@ -531,7 +560,8 @@ Public Class FormPrincipal
 
                 '    Close()
         End Select
-        Trace.WriteLine("terminar de listar")
+        'Trace.WriteLine("terminar de listar")
+
     End Sub
 #End Region
 
@@ -553,20 +583,11 @@ Public Class FormPrincipal
     Async Sub RutinaInsertar(IdSensor As Integer)
         Lecturas.IdSensor = IdSensor
         Lecturas.FechaInsercion = Now
-
         Await InsertarAsync()
-
+        'InsertarAsync()
     End Sub
-    Public Async Function InsertarAsync() As Task(Of Integer)
-        Dim respuesta = Await Lecturas.Insertar
-        If respuesta = 0 Then ' retorna con error, si este ya tiene el erro entonces ahora se debe configurar la vista
-            'Error DataGridViewElement registro se debe contar
-            Dim row As DataRow = registrosOffline.NewRow
-            row(0) = Lecturas.IdSensor
-            row(1) = Lecturas.FechaInsercion
-            registrosOffline.Rows.Add(row)
-        End If
-        Return respuesta
+    Public Async Function InsertarAsync() As Task
+        Await Lecturas.Insertar
     End Function
 #End Region
 
@@ -599,7 +620,7 @@ Public Class FormPrincipal
         Try
             With SerialPort1
                 .PortName = puerto
-                .BaudRate = 115200
+                .BaudRate = 9600
                 .DataBits = 8
                 .Parity = IO.Ports.Parity.None
                 .StopBits = IO.Ports.StopBits.One
@@ -614,7 +635,6 @@ Public Class FormPrincipal
         Catch ex As Exception
             result = False
         End Try
-
         Return result
     End Function
 
@@ -622,11 +642,10 @@ Public Class FormPrincipal
         Try
             If SerialPort1.IsOpen Then
                 SerialPort1.Close()
-
                 PbxComStatus.Image = My.Resources.red_dot
             End If
         Catch ex As Exception
-
+            Trace.WriteLine("error al desconectar puerto")
         End Try
     End Sub
 #End Region
@@ -636,42 +655,50 @@ Public Class FormPrincipal
         Try
             'Lee desde arduino
             Dim lectura As String = SerialPort1.ReadExisting
-
-            'Console.WriteLine($"{lectura}")
             If Not String.IsNullOrWhiteSpace(lectura) Then
                 lectura = lectura.Trim
-                'Trace.WriteLine("lectura:" & lectura)
                 Select Case lectura
                     Case "A" 'Sensor 1 - I0_0
                         ' Sensor dejó de leer (I0_0 en 0V)
                         TimerTiempoLectura1.Stop()
                         'Trace.WriteLine("lec min " & LecturaMinimaProducto & " / lect total " & TiempoLecturaTotal1)
-                        'If TiempoLecturaTotal1 >= LecturaMinimaProducto Then ' este formulario no existe
-                        'Trace.WriteLine("l")
-                        Select Case Sensor1Estado
-                            Case 1
-                                'Trace.WriteLine("l")
-                                RutinaInsertar(IdSensor1)
-                        End Select
-                        Trace.WriteLine(conexionDb)
-
-                        'End If
-
+                        If TiempoLecturaTotal1 >= LecturaMinimaProducto And TiempoLecturaTotal2 <= LecturaMaximaProducto Then ' este formulario no existe
+                            'Trace.WriteLine("l")
+                            Select Case Sensor1Estado
+                                Case 1
+                                    If conexionDb Then
+                                        RutinaInsertar(IdSensor1)
+                                    Else
+                                        Dim row As DataRow = registrosOffline.NewRow
+                                        row(0) = registrosOffline.Rows.Count + 1
+                                        row(1) = IdSensor1
+                                        row(2) = Now
+                                        registrosOffline.Rows.Add(row)
+                                    End If
+                            End Select
+                        End If
                         TiempoLecturaTotal1 = 0
                     Case "Z"
                         ' Sensor se encuentra leyendo (I0_0 en 24V)
                         TimerTiempoLectura1.Enabled = True
                         TimerTiempoLectura1.Start()
-
                     Case "B" 'Sensor 2 - I0_1
                         ' Sensor dejó de leer (I0_1 en 0V)
                         TimerTiempoLectura2.Stop()
-                        'If TiempoLecturaTotal2 >= LecturaMinimaProducto Then
-                        Select Case Sensor2Estado
-                            Case 1
-                                RutinaInsertar(IdSensor2)
-                        End Select
-                        'End If
+                        If TiempoLecturaTotal2 >= LecturaMinimaProducto And TiempoLecturaTotal2 <= LecturaMaximaProducto Then
+                            Select Case Sensor2Estado
+                                Case 1
+                                    If conexionDb Then
+                                        RutinaInsertar(IdSensor2)
+                                    Else
+                                        Dim row As DataRow = registrosOffline.NewRow
+                                        row(0) = registrosOffline.Rows.Count + 1
+                                        row(1) = IdSensor2
+                                        row(2) = Now
+                                        registrosOffline.Rows.Add(row)
+                                    End If
+                            End Select
+                        End If
 
                         TiempoLecturaTotal2 = 0
                     Case "Y"
@@ -682,7 +709,7 @@ Public Class FormPrincipal
                 LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
             Else
                 MuestraMensaje("Error 332", 2)
-                'Console.WriteLine("lectura desde SerialPort con error (332)")
+
             End If
 
             'Mueve texto del contador para centrarlo
@@ -748,7 +775,6 @@ Public Class FormPrincipal
 
         If bgwHelper.IsBusy Then
             MuestraMensaje($"Error 353", 2)
-            'Console.WriteLine($"Proceso aún en marcha")
             bgwHelper.CancelAsync()
         Else
             bgwHelper.RunWorkerAsync()
@@ -766,19 +792,34 @@ Public Class FormPrincipal
             Try
                 SerialPort1.WriteTimeout = 3000
                 SerialPort1.WriteLine(Caracter)
+                PbxComStatus.Image = My.Resources.green_dot
             Catch ex As Exception
                 DisconnectPort()
                 MuestraMensaje($"Error 374", 2)
-                'Console.WriteLine("Serialport is with error, system will reboot")
+                PbxComStatus.Image = My.Resources.red_dot
+                If TimerTiempoLectura1.Enabled Then
+                    TimerTiempoLectura1.Stop()
+                End If
+                If TimerTiempoLectura2.Enabled Then
+                    TimerTiempoLectura2.Stop()
+                End If
+                ConnectPort(COM)
             End Try
         Else
+            DisconnectPort()
             MuestraMensaje("Error 378", 2)
-            'Console.WriteLine("Serialport is closed")
+            If TimerTiempoLectura1.Enabled Then
+                TimerTiempoLectura1.Stop()
+            End If
+            If TimerTiempoLectura2.Enabled Then
+                TimerTiempoLectura2.Stop()
+            End If
+            PbxComStatus.Image = My.Resources.red_dot
+            ConnectPort(COM)
         End If
     End Sub
 
     Sub MuestraMensaje(Mensaje As String, Tipo As Byte)
-        'Console.WriteLine($"Mensaje {Mensaje}")
         LblError.Text = Mensaje
         If Tipo = 1 Then
             PanelError.BackColor = Color.Green
@@ -806,18 +847,6 @@ Public Class FormPrincipal
         p.StartInfo = startInfo
         p.Start()
     End Sub
-
-    'Private Sub bgwListar_DoWork(sender As Object, e As DoWorkEventArgs) Handles bgwListar.DoWork
-
-    'End Sub
-
-    'Private Sub bgwListar_RunWorkerCompleted(sender As Object, e As RunWorkerCompletedEventArgs) Handles bgwListar.RunWorkerCompleted
-    '    If Not bgwListar.IsBusy Then
-
-    '    End If
-
-    'End Sub
-
 
 
 

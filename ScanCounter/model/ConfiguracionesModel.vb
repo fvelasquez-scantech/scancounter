@@ -30,7 +30,6 @@ Public Class ConfiguracionesModel
         Catch ex As Exception
             result.Columns.Add("Error")
             result.Rows.Add(ex.Message)
-            'MsgBox($"Error (ConfiguracionesModel 10) {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then

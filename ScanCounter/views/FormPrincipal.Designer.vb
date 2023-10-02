@@ -61,6 +61,8 @@ Partial Class FormPrincipal
         Me.TimerTiempoLectura1 = New System.Windows.Forms.Timer(Me.components)
         Me.TimerTiempoLectura2 = New System.Windows.Forms.Timer(Me.components)
         Me.bgwListar = New System.ComponentModel.BackgroundWorker()
+        Me.TimerRed = New System.Windows.Forms.Timer(Me.components)
+        Me.TimerOffline = New System.Windows.Forms.Timer(Me.components)
         Me.Panel4.SuspendLayout()
         CType(Me.PbxNetworkStatus, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.PbxComStatus, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -427,7 +429,7 @@ Partial Class FormPrincipal
         '
         'TimerMensaje
         '
-        Me.TimerMensaje.Interval = 2000
+        Me.TimerMensaje.Interval = 1600
         '
         'TimerUpdater
         '
@@ -441,6 +443,14 @@ Partial Class FormPrincipal
         'TimerTiempoLectura2
         '
         Me.TimerTiempoLectura2.Interval = 10
+        '
+        'TimerRed
+        '
+        Me.TimerRed.Interval = 1000
+        '
+        'TimerOffline
+        '
+        Me.TimerOffline.Interval = 20000
         '
         'FormPrincipal
         '
@@ -522,4 +532,6 @@ Partial Class FormPrincipal
     Friend WithEvents TimerTiempoLectura2 As Timer
     Friend WithEvents LblLectura2 As Label
     Friend WithEvents bgwListar As System.ComponentModel.BackgroundWorker
+    Friend WithEvents TimerRed As Timer
+    Friend WithEvents TimerOffline As Timer
 End Class
