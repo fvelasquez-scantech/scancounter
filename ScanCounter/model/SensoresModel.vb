@@ -25,14 +25,14 @@ Public Class SensoresModel
             }
 
             command.Parameters.AddWithValue("@id", Id)
-
+            command.CommandTimeout = 1
             connection.Open()
 
             da.SelectCommand = command
             da.Fill(result)
             Return result
         Catch ex As Exception
-            Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
+            'Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then

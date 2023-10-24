@@ -9,11 +9,11 @@ Imports System.ComponentModel
 Imports System.Web.ModelBinding
 Imports System.Runtime.Remoting.Messaging
 Imports System.Runtime.InteropServices
+Imports System.IO
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
     Private bgOpcion As String = ""
-    Private bgResultado As DataTable
     Private bgwHelperResultado As Integer
 
     'Variables de ayuda para timer
@@ -26,10 +26,12 @@ Public Class FormPrincipal
     Private ReadOnly Wrapper As SecurityWrapper
 
     'Datatables
-    Private ConfiguracionesDatatable As DataTable
+    Private bgResultado As DataTable
     Private Sensor1Datatable As DataTable
     Private Sensor2Datatable As DataTable
     Private registrosOffline As New DataTable
+    Private ConfiguracionesDatatable As DataTable
+    Private SensorOfflineRegDataTable As DataTable
 
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
@@ -50,7 +52,6 @@ Public Class FormPrincipal
     Private Contador2 As Integer() = {0, 0} 'cuenta sensor 2 (identificador B desde arduino)
 
 
-    Private SensorOfflineRegDataTable As DataTable
 
     Private Sensor1Estado As Byte = 2 'maneja estado del sensor 1 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private Sensor2Estado As Byte = 2 'maneja estado del sensor 2 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
@@ -65,6 +66,8 @@ Public Class FormPrincipal
     'en offline segun velocidad  de cinta estas son las que deberian por defecto
     Private LecturaMinimaProducto As Integer = 500 'valores predeterminados minimos
     Private LecturaMaximaProducto As Integer = 3000 'valor predeterminado maximo 
+
+    Private ProductoValidado As Boolean = False
 
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
@@ -113,6 +116,8 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+
+        TimerUpdater.Start()
         TimerRed.Start()
         Iniciando = True
         Cursor.Hide()
@@ -162,7 +167,9 @@ Public Class FormPrincipal
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
                 COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
-                Console.WriteLine($"Iniciando conexión al puerto {COM}")
+                'Console.WriteLine($"Iniciando conexión al puerto {COM}")
+                'Console.WriteLine($"lmax  {LecturaMaximaProducto}")
+                'Console.WriteLine($"lmin  {LecturaMinimaProducto}")
 
                 If ConnectPort(COM) Then
                     'EnviaCaracterArduino("g") 'Imprime cont1 y cont2
@@ -224,10 +231,13 @@ Public Class FormPrincipal
             End If
         End Try
 
+
+
         If contadorLecturasSinBd = 6 Then
             If TimerOffline.Enabled = False Then
+
                 TimerOffline.Start()
-                Trace.WriteLine("timer offline iniciado")
+                'Trace.WriteLine("timer offline iniciado")
             End If
             PanelLoadingS1.BackColor = Gray
             PanelLoadingS2.BackColor = LightSlateGray
@@ -243,7 +253,13 @@ Public Class FormPrincipal
 
         If registrosOffline IsNot Nothing Then
             If registrosOffline.Rows.Count > 0 Then
-                Trace.WriteLine("conteo oofline  por mientras" & registrosOffline.Rows.Count)
+                If contadorLecturasSinBd = 0 Then
+                    If TimerOffline.Enabled Then
+                        'Trace.WriteLine("iniciando offline")
+                        TimerOffline.Start()
+                    End If
+                End If
+                'Trace.WriteLine("conteo oofline  por mientras" & registrosOffline.Rows.Count)
             End If
         End If
 
@@ -257,18 +273,14 @@ Public Class FormPrincipal
                 PbxLoading3.Hide()
                 PbxLoading4.Hide()
                 PbxLoading5.Hide()
-
                 LblSensor1.Show()
                 LblSensor2.Show()
-
                 LblVersion.Text = Application.ProductVersion
-
                 TimerEstado = False
                 TimerHelper.Stop()
-
                 Sensores.Id = IdSensor1
-
                 IniciaBackgroundworker("ListarSensor")
+
             Case "Error1"
                 PbxComStatus.Image = My.Resources.red_dot
                 PbxNetworkStatus.Hide()
@@ -309,7 +321,7 @@ Public Class FormPrincipal
                 'Console.WriteLine("No se pudo actualizar actualizacion_disponible a false")
         End Select
 
-
+        ProductoValidado = True
     End Sub
 
     Function ChequeaNuevaVersionEnApi() As Boolean
@@ -323,9 +335,9 @@ Public Class FormPrincipal
         If response.StatusCode = HttpStatusCode.OK Then
             Dim json As JObject = JObject.Parse(content)
 
-            Console.WriteLine($"versión: {json.SelectToken("Producto.version")}")
-            Console.WriteLine($"link: {json.SelectToken("Producto.link")}")
-            Console.WriteLine($"programa: {json.SelectToken("Producto.nombre_programa")}")
+            'Console.WriteLine($"versión: {json.SelectToken("Producto.version")}")
+            'Console.WriteLine($"link: {json.SelectToken("Producto.link")}")
+            'Console.WriteLine($"programa: {json.SelectToken("Producto.nombre_programa")}")
 
             If Application.ProductVersion <> json.SelectToken("Producto.version") Then
                 result = True
@@ -342,68 +354,67 @@ Public Class FormPrincipal
 
 #Region "Valida licencia"
     Sub RutinaValidaLicencia()
-        bgwHelperResultado = 1
+        'bgwHelperResultado = 1
 
-        'If Not IO.File.Exists(Configuration.SourcePath) Then
-        '    bgwHelperResultado = 2
-        'Else
-        '    Dim XmlDoc As XmlDocument = New XmlDocument()
-        '    XmlDoc.Load(Configuration.SavePath)
-        '    If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
-        '        IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
-        '        Console.WriteLine($"IdProducto {IdProducto}")
+        If Not IO.File.Exists(Configuration.SourcePath) Then
+            bgwHelperResultado = 2
+        Else
+            Dim XmlDoc As XmlDocument = New XmlDocument()
+            XmlDoc.Load(Configuration.SavePath)
+            If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
+                IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
+                'Console.WriteLine($"IdProducto {IdProducto}")
 
-        '        ' Lee licencia segun el id del producto
-        '        Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
+                ' Lee licencia segun el id del producto
+                Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
 
-        '        Dim request = New RestRequest(Method.GET)
-        '        Dim response As IRestResponse = client.Execute(request)
-        '        Dim content As String = response.Content
+                Dim request = New RestRequest(Method.GET)
+                Dim response As IRestResponse = client.Execute(request)
+                Dim content As String = response.Content
 
-        '        If response.StatusCode = HttpStatusCode.OK Then
-        '            Dim json As JObject = JObject.Parse(content)
+                If response.StatusCode = HttpStatusCode.OK Then
+                    Dim json As JObject = JObject.Parse(content)
 
-        '            '¿Licencia está activa? (key_estado ACT || DIS)
-        '            Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
-        '            Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
+                    '¿Licencia está activa? (key_estado ACT || DIS)
+                    'Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
+                    'Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
 
-        '            Dim result As String = json.SelectToken("Licencia.key_estado").ToString
+                    Dim result As String = json.SelectToken("Licencia.key_estado").ToString
+                    Select Case result
+                    'Case "DIS"
+                    '    bgwHelperResultado = 2
+                        Case "DES"
+                            ProductoValidado = False
+                            bgwHelperResultado = 3
+                        Case "ACT", "DIS"
+                            'Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
+                            Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
+                                Case "PRO"
+                                    bgwHelperResultado = 1
+                                Case "STANDAR"
+                                    Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
 
-        '            Select Case result
-        '            'Case "DIS"
-        '            '    bgwHelperResultado = 2
-        '                Case "DES"
-        '                    bgwHelperResultado = 3
-        '                Case "ACT", "DIS"
-        '                    Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
-        '                    Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
-        '                        Case "PRO"
-        '                            bgwHelperResultado = 1
-        '                        Case "STANDAR"
-        '                            Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
+                                    Dim desface As Long = DateDiff("d", fechaActivacion, Now)
 
-        '                            Dim desface As Long = DateDiff("d", fechaActivacion, Now)
-
-        '                            If desface >= 7 Then
-        '                                bgwHelperResultado = 4
-        '                            End If
-        '                    End Select
-        '            End Select
-        '        End If
-        '    Else
-        '        bgwHelperResultado = 2
-        '    End If
-        'End If
+                                    If desface >= 7 Then
+                                        bgwHelperResultado = 4
+                                    End If
+                            End Select
+                    End Select
+                End If
+            Else
+                bgwHelperResultado = 2
+            End If
+        End If
     End Sub
     Sub RutinaValidaLicencia_Completed()
         Select Case bgwHelperResultado
             Case 0
-                Cursor.Show()
-                'MsgBox("Error (RutinaValidaLicencia 232)")
-
                 MuestraMensaje("Error LIC 232", 2)
             Case 1
-                IniciaBackgroundworker("Load")
+                If ProductoValidado = False Then
+                    IniciaBackgroundworker("Load")
+                End If
             Case 2
                 Cursor.Show()
                 MsgBox("Su producto está sin licencia, por favor contacte a soporte@scantech.cl")
@@ -578,7 +589,6 @@ Public Class FormPrincipal
                 IniciaBackgroundworker("Load")
         End Select
     End Sub
-
 #End Region
 
 #Region "Insertar lectura"
@@ -598,6 +608,11 @@ Public Class FormPrincipal
         'If TiempoLecturaTotal1 < LecturaMaximaProducto Then
         TiempoLecturaTotal1 += TimerTiempoLectura1.Interval
         LblLectura1.Text = TiempoLecturaTotal1
+        If Sensor1Estado <> 1 Then
+            TimerTiempoLectura1.Stop()
+            LblLectura1.Text = "0"
+        End If
+
         'Else
         '    TimerTiempoLectura1.Stop()
         'MaximoAlcanzado1 = True
@@ -607,6 +622,10 @@ Public Class FormPrincipal
         'If TiempoLecturaTotal2 < LecturaMaximaProducto Then
         TiempoLecturaTotal2 += TimerTiempoLectura2.Interval
         LblLectura2.Text = TiempoLecturaTotal2
+        If Sensor2Estado <> 1 Then
+            TimerTiempoLectura2.Stop()
+            LblLectura2.Text = "0"
+        End If
         'Else
         '    TimerTiempoLectura2.Stop()
         '    MaximoAlcanzado2 = True
@@ -647,7 +666,7 @@ Public Class FormPrincipal
                 PbxComStatus.Image = My.Resources.red_dot
             End If
         Catch ex As Exception
-            Trace.WriteLine("error al desconectar puerto")
+            'Trace.WriteLine("error al desconectar puerto")
         End Try
     End Sub
 #End Region
@@ -664,8 +683,7 @@ Public Class FormPrincipal
                         ' Sensor dejó de leer (I0_0 en 0V)
                         TimerTiempoLectura1.Stop()
                         'Trace.WriteLine("lec min " & LecturaMinimaProducto & " / lect total " & TiempoLecturaTotal1)
-                        If TiempoLecturaTotal1 >= LecturaMinimaProducto And TiempoLecturaTotal2 <= LecturaMaximaProducto Then ' este formulario no existe
-                            'Trace.WriteLine("l")
+                        If TiempoLecturaTotal1 >= LecturaMinimaProducto And TiempoLecturaTotal1 <= LecturaMaximaProducto Then ' este formulario no existe
                             Select Case Sensor1Estado
                                 Case 1
                                     If conexionDb Then
@@ -776,7 +794,11 @@ Public Class FormPrincipal
         bgOpcion = Opcion
 
         If bgwHelper.IsBusy Then
-            MuestraMensaje($"Error 353", 2)
+            'Trace.WriteLine(bgOpcion)
+            If bgOpcion <> "ValidaLicencia" And bgOpcion <> "ListarSensor" Then
+                MuestraMensaje($"Error 353", 2)
+            End If
+
             bgwHelper.CancelAsync()
         Else
             bgwHelper.RunWorkerAsync()
@@ -839,25 +861,12 @@ Public Class FormPrincipal
         PanelError.Hide()
     End Sub
 
-    Sub EjecutarComando(command As String)
-        Dim p As New Process
-        Dim startInfo As New ProcessStartInfo()
-        startInfo.FileName = "cmd.exe"
-        startInfo.Arguments = "/c " & command
-        startInfo.UseShellExecute = False
-        startInfo.CreateNoWindow = True
-        p.StartInfo = startInfo
-        p.Start()
+    Private Sub TimerUpdater_Tick(sender As Object, e As EventArgs) Handles TimerUpdater.Tick
+        'sender hace esto por que si no tiene conexikno cuando inica y luego lo recupera no vuelve
+        IniciaBackgroundworker("ValidaLicencia")
     End Sub
 
 
-
-    'Private Sub TimerUpdater_Tick(sender As Object, e As EventArgs) Handles TimerUpdater.Tick
-    '    Console.WriteLine($"Iniciando ScanUpdater")
-    '    EjecutarComando("C:\Scantech\ScanUpdater.exe")
-
-    '    Close()
-    'End Sub
 #End Region
 
 End Class

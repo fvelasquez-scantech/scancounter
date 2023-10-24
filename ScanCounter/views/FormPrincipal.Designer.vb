@@ -434,7 +434,7 @@ Partial Class FormPrincipal
         'TimerUpdater
         '
         Me.TimerUpdater.Enabled = True
-        Me.TimerUpdater.Interval = 5000
+        Me.TimerUpdater.Interval = 10000
         '
         'TimerTiempoLectura1
         '

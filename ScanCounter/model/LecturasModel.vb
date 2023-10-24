@@ -33,7 +33,7 @@ Public Class LecturasModel
             Await command.ExecuteNonQueryAsync
             Return 1
         Catch ex As Exception
-            Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
+            'Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
             Return 0
         Finally
             If connection.State = ConnectionState.Open Then
@@ -77,7 +77,7 @@ Public Class LecturasModel
             End While
             Return resp
         Catch ex As Exception
-            Trace.WriteLine($"Error BalanzaInformacion 617: {ex.Message}")
+            'Trace.WriteLine($"Error BalanzaInformacion 617: {ex.Message}")
             Return resp
         Finally
             If connection.State = ConnectionState.Open Then

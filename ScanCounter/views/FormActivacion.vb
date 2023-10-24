@@ -251,6 +251,10 @@ Public Class FormActivacion
         writer.WriteString(value)
         writer.WriteEndElement()
     End Sub
+
+    Private Sub Label4_Click(sender As Object, e As EventArgs) Handles Label4.Click
+
+    End Sub
 #End Region
 
 End Class
