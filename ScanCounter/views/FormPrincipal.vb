@@ -10,6 +10,7 @@ Imports System.Web.ModelBinding
 Imports System.Runtime.Remoting.Messaging
 Imports System.Runtime.InteropServices
 Imports System.IO
+Imports System.Threading
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -66,9 +67,9 @@ Public Class FormPrincipal
     'en offline segun velocidad  de cinta estas son las que deberian por defecto
     Private LecturaMinimaProducto As Integer = 500 'valores predeterminados minimos
     Private LecturaMaximaProducto As Integer = 3000 'valor predeterminado maximo 
-
     Private ProductoValidado As Boolean = False
-
+    Private logErrores As String = "C:\Scantech\log_counter.text"
+    Private fsErrores As FileStream
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
 
@@ -77,6 +78,9 @@ Public Class FormPrincipal
 
 #Region "Constructor"
     Sub New()
+
+        AddHandler Application.ThreadException, AddressOf Application_ThreadException
+        AddHandler AppDomain.CurrentDomain.UnhandledException, AddressOf CurrentDomain_UnhandledException
 
         ' Esta llamada es exigida por el diseñador.
         InitializeComponent()
@@ -101,6 +105,7 @@ Public Class FormPrincipal
             Case "ValidaLicencia"
                 RutinaValidaLicencia()
         End Select
+
     End Sub
     Private Sub bgwHelper_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles bgwHelper.RunWorkerCompleted
         Select Case bgOpcion
@@ -114,8 +119,21 @@ Public Class FormPrincipal
     End Sub
 #End Region
 
+
+    Public Sub generarerror()
+        Dim dt As New DataTable
+        dt = Nothing
+        If dt.Rows.Count > 0 Then
+            'carsh
+        End If
+    End Sub
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        If Not IO.File.Exists(logErrores) Then
+            fsErrores = IO.File.Create(logErrores)
+            fsErrores.Close()
+        End If
+        generarerror()
 
         TimerUpdater.Start()
         TimerRed.Start()
@@ -325,6 +343,7 @@ Public Class FormPrincipal
     End Sub
 
     Function ChequeaNuevaVersionEnApi() As Boolean
+
         Dim client As New RestClient($"https://scantech.cl/api/productos/read_update_ruta_producto.php?id_producto={IdProducto}")
 
         Dim request = New RestRequest(Method.GET)
@@ -866,7 +885,51 @@ Public Class FormPrincipal
         IniciaBackgroundworker("ValidaLicencia")
     End Sub
 
+    Public Sub LogERR(mensaje As String)
+        fsErrores = IO.File.Open(logErrores, FileMode.Open)
+        Using writer As New StreamWriter(logErrores, True)
+            writer.WriteLine(mensaje)
+        End Using
+        fsErrores.Close()
+    End Sub
+    Private Sub Application_ThreadException(ByVal sender As Object, ByVal e As ThreadExceptionEventArgs)
+        LogERR("Error Crash Tread: reiniciando con hora " & Now & " Error: " & e.Exception.Message & " / " & e.Exception.TargetSite.ToString)
+        lazaro()
+    End Sub
+    Private Sub CurrentDomain_UnhandledException(ByVal sender As Object, ByVal e As UnhandledExceptionEventArgs)
+        'Dim ex As Exception = DirectCast(e.ExceptionObject, Exception)
+        LogERR("Error Crash Exep: reiniciando con hora " & Now & " Error: " & e.ExceptionObject.Message & " / " & e.ExceptionObject.TargetSite.ToString)
+        lazaro()
+    End Sub
 
+    Public Sub lazaro()
+        Dim path_batch As String = "C:\Scantech\batch_counter.bat"
+        Dim fs As FileStream
+        If Not IO.File.Exists(path_batch) Then
+            fs = IO.File.Create(path_batch)
+        Else
+            fs = IO.File.Open(path_batch, FileMode.Open)
+        End If
+        Dim path_batch_txt As String = "@echo off
+                                        taskkill /f /im SC100PLUS.exe
+                                        timeout /t 4 /nobreak >nul
+                                        start """" ""C:\Scantech\ScanCounter.exe"" "
+
+        Using writer As New StreamWriter(fs)
+            writer.Write(path_batch_txt)
+        End Using
+        ejecutarComando(path_batch)
+    End Sub
+    Public Sub ejecutarComando(command As String)
+        Dim p As New Process
+        Dim startInfo As New ProcessStartInfo()
+        startInfo.FileName = "cmd.exe"
+        startInfo.Arguments = "/c " & command
+        startInfo.UseShellExecute = False
+        startInfo.CreateNoWindow = True
+        p.StartInfo = startInfo
+        p.Start()
+    End Sub
 #End Region
 
 End Class
