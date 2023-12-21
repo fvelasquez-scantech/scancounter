@@ -52,8 +52,6 @@ Public Class FormPrincipal
     Private Contador1 As Integer() = {0, 0} 'cuenta sensor 1 (identificador A desde arduino)
     Private Contador2 As Integer() = {0, 0} 'cuenta sensor 2 (identificador B desde arduino)
 
-
-
     Private Sensor1Estado As Byte = 2 'maneja estado del sensor 1 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private Sensor2Estado As Byte = 2 'maneja estado del sensor 2 para actualizar variable sensor1_Estado en arduino (1: iniciado, 2: detenido, 3:reset)
     Private SensorNombreIndex As Byte = 1 'index según consulta sql
@@ -119,21 +117,12 @@ Public Class FormPrincipal
     End Sub
 #End Region
 
-
-    Public Sub generarerror()
-        Dim dt As New DataTable
-        dt = Nothing
-        If dt.Rows.Count > 0 Then
-            'carsh
-        End If
-    End Sub
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         If Not IO.File.Exists(logErrores) Then
             fsErrores = IO.File.Create(logErrores)
             fsErrores.Close()
         End If
-        generarerror()
 
         TimerUpdater.Start()
         TimerRed.Start()
@@ -253,7 +242,6 @@ Public Class FormPrincipal
 
         If contadorLecturasSinBd = 6 Then
             If TimerOffline.Enabled = False Then
-
                 TimerOffline.Start()
                 'Trace.WriteLine("timer offline iniciado")
             End If
@@ -886,11 +874,11 @@ Public Class FormPrincipal
     End Sub
 
     Public Sub LogERR(mensaje As String)
-        fsErrores = IO.File.Open(logErrores, FileMode.Open)
+        'fsErrores = IO.File.Open(logErrores, FileMode.Open)
         Using writer As New StreamWriter(logErrores, True)
             writer.WriteLine(mensaje)
         End Using
-        fsErrores.Close()
+        'fsErrores.Close()
     End Sub
     Private Sub Application_ThreadException(ByVal sender As Object, ByVal e As ThreadExceptionEventArgs)
         LogERR("Error Crash Tread: reiniciando con hora " & Now & " Error: " & e.Exception.Message & " / " & e.Exception.TargetSite.ToString)
