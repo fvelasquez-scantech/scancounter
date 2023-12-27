@@ -89,7 +89,7 @@ Partial Class FormPrincipal
         Me.LblContador1.BackColor = System.Drawing.Color.Transparent
         Me.LblContador1.Font = New System.Drawing.Font("Arial", 200.0!, System.Drawing.FontStyle.Bold)
         Me.LblContador1.ForeColor = System.Drawing.Color.Black
-        Me.LblContador1.Location = New System.Drawing.Point(41, 219)
+        Me.LblContador1.Location = New System.Drawing.Point(45, 161)
         Me.LblContador1.Name = "LblContador1"
         Me.LblContador1.Size = New System.Drawing.Size(865, 299)
         Me.LblContador1.TabIndex = 12

@@ -44,8 +44,9 @@ Public Class FormPrincipal
 
     Private contadorLecturasSinBd As Integer = 0
 
-    Private IdSensor1 As Byte = 3
-    Private IdSensor2 As Byte = 4
+    Private IdSensor1 As Byte = 5
+    Private IdSensor2 As Byte = 6
+
     Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
     ' se transformaron  en arreglos ya que necesito que los contadores representen su estado offline el cual sera contadorx(1)
@@ -190,20 +191,20 @@ Public Class FormPrincipal
                 'Console.WriteLine($"lmax  {LecturaMaximaProducto}")
                 'Console.WriteLine($"lmin  {LecturaMinimaProducto}")
 
-                If ConnectPort(COM) Then
-                    'EnviaCaracterArduino("g") 'Imprime cont1 y cont2
+                'If ConnectPort(COM) Then
+                'EnviaCaracterArduino("g") 'Imprime cont1 y cont2
 
-                    'Actualiza ultimo inicio de lecturas de ambos sensores
-                    'If Sensores.ActualizarUltimoInicioLecturas Then
+                'Actualiza ultimo inicio de lecturas de ambos sensores
+                'If Sensores.ActualizarUltimoInicioLecturas Then
 
-                    bgResultado.Rows.Add("Ok")
+                bgResultado.Rows.Add("Ok")
                     'Else
                     '    bgResultado.Rows.Add("Error3")
                     'End If
+                    'Else
+                    '    bgResultado.Rows.Add("Error")
+                    'End If
                 Else
-                    bgResultado.Rows.Add("Error")
-                End If
-            Else
                 bgResultado.Rows.Add("Error1")
             End If
         Else
@@ -353,11 +354,6 @@ Public Class FormPrincipal
         Dim result As Boolean
         If response.StatusCode = HttpStatusCode.OK Then
             Dim json As JObject = JObject.Parse(content)
-
-            'Console.WriteLine($"versión: {json.SelectToken("Producto.version")}")
-            'Console.WriteLine($"link: {json.SelectToken("Producto.link")}")
-            'Console.WriteLine($"programa: {json.SelectToken("Producto.nombre_programa")}")
-
             If Application.ProductVersion <> json.SelectToken("Producto.version") Then
                 result = True
             Else
@@ -506,8 +502,13 @@ Public Class FormPrincipal
                         LblContador1.Text = Contador1(0)
                         AcomodaLabel("Contador1")
                         'End If
-
+                        'Trace.WriteLine("wenisimas")
                         LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
+
+                        'aqui buscar la entrada
+
+                        'If Sensor1Datatable.Rows(5)(1) Then
+
 
 
                         LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
@@ -829,8 +830,35 @@ Public Class FormPrincipal
 
         TimerHelper.Start()
     End Sub
+    Dim wenas As String
+    Public Function convertirDatosArduino(sensor As String, posicion As String) As String
+        Try
+            sensor = "1"
+            posicion = "I0_1"
+            Dim x As String = posicion.Substring(0, 2)
+            Dim medio As String = "1"
+            Select Case x
+                Case "I0"
+                    medio = "1"
+                Case "I1"
+                    medio = "2"
+            End Select
+            Dim final As String = ""
+            If posicion.Length > 4 Then
+                final = posicion.Substring(2, 1)
+            Else
+                final = posicion.Substring(2, 2)
+            End If
+            wenas = sensor & ":" & medio & ":" & final
+            Return wenas
+        Catch ex As Exception
+            Return Nothing
+        End Try
+    End Function
+
 
     Sub EnviaCaracterArduino(Caracter As String)
+        'enviar la ubicacion del sensor junto con la pocicion
         If SerialPort1.IsOpen Then
             Try
                 SerialPort1.WriteTimeout = 3000
