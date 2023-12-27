@@ -93,6 +93,17 @@ Public Class FormPrincipal
     End Sub
 #End Region
 
+
+    Private Sub getPrevInstance()
+        Dim currPrsName As String = Process.GetCurrentProcess().ProcessName
+        Dim allProcessWithThisName() As Process = Process.GetProcessesByName(currPrsName)
+        For Each proc As Process In allProcessWithThisName
+            If proc.Id <> Process.GetCurrentProcess.Id Then
+                proc.Kill()
+            End If
+        Next
+    End Sub
+
 #Region "Backgroundworker Helper"
     Private Sub bgwHelper_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles bgwHelper.DoWork
         Select Case bgOpcion
@@ -119,6 +130,7 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        getPrevInstance()
         If Not IO.File.Exists(logErrores) Then
             fsErrores = IO.File.Create(logErrores)
             fsErrores.Close()
