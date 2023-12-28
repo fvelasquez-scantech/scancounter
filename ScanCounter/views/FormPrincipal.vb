@@ -11,6 +11,7 @@ Imports System.Runtime.Remoting.Messaging
 Imports System.Runtime.InteropServices
 Imports System.IO
 Imports System.Threading
+Imports System.Security.Cryptography.X509Certificates
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -28,8 +29,17 @@ Public Class FormPrincipal
 
     'Datatables
     Private bgResultado As DataTable
+    'estos sensores Tienen el inicio con chos datos por que se carga directamente 
     Private Sensor1Datatable As DataTable
     Private Sensor2Datatable As DataTable
+    'se utilizara la carga a travez de  hilos  para poder cargar mas rapido y actualizarlo durante la consulta nueva
+    'se añadira un timer para ver cuando actualize los sensores y envie datos al arudino
+
+    Private Sensor1AltDatatable As DataTable
+    Private Sensor2AltDatatable As DataTable
+    'Private TimerComprobarEntradas As timer
+
+
     Private registrosOffline As New DataTable
     Private ConfiguracionesDatatable As DataTable
     Private SensorOfflineRegDataTable As DataTable
@@ -46,6 +56,14 @@ Public Class FormPrincipal
 
     Private IdSensor1 As Byte = 5
     Private IdSensor2 As Byte = 6
+
+
+    Private NombreEquipo As String
+    Private SalidaSensor As String
+    Private EntradaSensor1 As String
+    Private EntradaSensor2 As String
+    Private LimiteBatch As String
+
 
     Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
@@ -89,6 +107,7 @@ Public Class FormPrincipal
         Sensores = New SensoresModel
         Lecturas = New LecturasModel
         Wrapper = New SecurityWrapper
+        'AddHandler TimerSensores.Tick, AddressOf sensore
         AddHandler TimerOffline.Tick, AddressOf TimerOffline_Tick
         AddHandler TimerRed.Tick, AddressOf TimerRed_tick ' unico tick constante, el resto se llama por eventos
     End Sub
@@ -131,12 +150,14 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+
         getPrevInstance()
         If Not IO.File.Exists(logErrores) Then
             fsErrores = IO.File.Create(logErrores)
             fsErrores.Close()
         End If
 
+        TimerSensores.Start()
         TimerUpdater.Start()
         TimerRed.Start()
         Iniciando = True
@@ -158,7 +179,16 @@ Public Class FormPrincipal
 
         IniciaBackgroundworker("ValidaLicencia")
     End Sub
+
+
+
+
     Sub RutinaLoad()
+
+
+
+
+
         'If ChequeaNuevaVersionEnApi() Then
         '    Console.WriteLine($"Nueva versión disponible")
         '    Configuraciones.ActualizacionDisponible = True
@@ -186,7 +216,9 @@ Public Class FormPrincipal
 
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
+                SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
                 COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
+
                 'Console.WriteLine($"Iniciando conexión al puerto {COM}")
                 'Console.WriteLine($"lmax  {LecturaMaximaProducto}")
                 'Console.WriteLine($"lmin  {LecturaMinimaProducto}")
@@ -198,13 +230,13 @@ Public Class FormPrincipal
                 'If Sensores.ActualizarUltimoInicioLecturas Then
 
                 bgResultado.Rows.Add("Ok")
-                    'Else
-                    '    bgResultado.Rows.Add("Error3")
-                    'End If
-                    'Else
-                    '    bgResultado.Rows.Add("Error")
-                    'End If
-                Else
+                'Else
+                '    bgResultado.Rows.Add("Error3")
+                'End If
+                'Else
+                '    bgResultado.Rows.Add("Error")
+                'End If
+            Else
                 bgResultado.Rows.Add("Error1")
             End If
         Else
@@ -475,7 +507,6 @@ Public Class FormPrincipal
         Select Case Sensores.Id
             Case IdSensor1
                 Sensor1Datatable = Sensores.Listar
-
                 If Sensor1Datatable.Rows.Count > 0 And Sensor1Datatable IsNot Nothing Then
                     bgResultado.Rows.Add("Ok")
                 Else
@@ -483,7 +514,6 @@ Public Class FormPrincipal
                 End If
             Case IdSensor2
                 Sensor2Datatable = Sensores.Listar
-
                 If Sensor2Datatable.Rows.Count > 0 And Sensor2Datatable IsNot Nothing Then
                     bgResultado.Rows.Add("Ok")
                 Else
@@ -860,6 +890,7 @@ Public Class FormPrincipal
     Sub EnviaCaracterArduino(Caracter As String)
         'enviar la ubicacion del sensor junto con la pocicion
         If SerialPort1.IsOpen Then
+            'nothign of mather
             Try
                 SerialPort1.WriteTimeout = 3000
                 SerialPort1.WriteLine(Caracter)
@@ -958,6 +989,48 @@ Public Class FormPrincipal
         p.StartInfo = startInfo
         p.Start()
     End Sub
+
+    Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
+        Dim Hilo As New Thread(AddressOf ObtenerSensores)
+        Hilo.Start()
+        'mientras tengan datos entonces que compare
+        If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
+            'sensor1 cambio
+            If EntradaSensor1 IsNot Nothing Or EntradaSensor1 <> "" Then
+                'aqui puede cambiar al acutalizar
+                If EntradaSensor1 <> Sensor1AltDatatable(0)(5) Then
+                    EnviaCaracterArduino(Sensor1AltDatatable(0)(5))
+                    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
+                End If
+            Else
+                'si es nada
+                EntradaSensor1 = Sensor1AltDatatable(0)(5)
+            End If
+            'sensor 2 cambio
+            If EntradaSensor2 IsNot Nothing Or EntradaSensor2 <> "" Then
+                'aqui puede cambiar al acutalizar
+                If EntradaSensor2 <> Sensor2AltDatatable(0)(5) Then
+                    EnviaCaracterArduino(Sensor2AltDatatable(0)(5))
+                    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
+                End If
+            Else
+                'si es nada
+                EntradaSensor1 = Sensor1AltDatatable(0)(5)
+            End If
+        End If
+    End Sub
+
+    'caracteresArduino
+
+
+    Public Sub ObtenerSensores()
+        Sensores.Id = IdSensor1
+        Sensor1AltDatatable = Sensores.ListarAlt
+        Sensores.Id = IdSensor2
+        Sensor2AltDatatable = Sensores.ListarAlt
+    End Sub
+
+
 #End Region
 
 End Class
