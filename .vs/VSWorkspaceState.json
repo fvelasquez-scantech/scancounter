@@ -3,8 +3,10 @@
     "",
     "\\ScanCounter",
     "\\ScanCounter\\model",
-    "\\ScanCounter\\views"
+    "\\ScanCounter\\My Project",
+    "\\ScanCounter\\views",
+    "\\Updater"
   ],
-  "SelectedNode": "\\ScanCounter\\views\\FormPrincipal.vb",
+  "SelectedNode": "\\ScanCounter.sln",
   "PreviewInSolutionExplorer": false
 }

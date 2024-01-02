@@ -12,6 +12,9 @@ Imports System.Runtime.InteropServices
 Imports System.IO
 Imports System.Threading
 Imports System.Security.Cryptography.X509Certificates
+Imports System.Data.SqlTypes
+Imports System.Net.NetworkInformation
+Imports System.Text.RegularExpressions
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -64,6 +67,7 @@ Public Class FormPrincipal
     Private EntradaSensor2 As String
     Private LimiteBatch As String
 
+    Private HiloSensores As Thread
 
     Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
@@ -150,45 +154,44 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        'Dim val As String = "Q0_4"
+        'Trace.WriteLine(" caracter enviado =  " & val & " convertido en  == " & FiltroLetraEntradaSalida(val))
+        'CAMBIO NORMAL
+        EnviarCambioPines("I0_11", 0)
+        EnviarCambioPines("I0_12", 1)
+        'getPrevInstance()
+        'If Not IO.File.Exists(logErrores) Then
+        '    fsErrores = IO.File.Create(logErrores)
+        '    fsErrores.Close()
+        'End If
 
-        getPrevInstance()
-        If Not IO.File.Exists(logErrores) Then
-            fsErrores = IO.File.Create(logErrores)
-            fsErrores.Close()
-        End If
+        'TimerSensores.Start()
+        'TimerUpdater.Start()
+        'TimerRed.Start()
+        'Iniciando = True
+        'Cursor.Hide()
 
-        TimerSensores.Start()
-        TimerUpdater.Start()
-        TimerRed.Start()
-        Iniciando = True
-        Cursor.Hide()
+        'PbxLoadingSensor1.Show()
+        'PbxLoadingSensor1.BringToFront()
 
-        PbxLoadingSensor1.Show()
-        PbxLoadingSensor1.BringToFront()
+        'PbxLoadingSensor2.Show()
+        'PbxLoadingSensor2.BringToFront()
 
-        PbxLoadingSensor2.Show()
-        PbxLoadingSensor2.BringToFront()
+        'PbxLoading3.BringToFront()
 
-        PbxLoading3.BringToFront()
+        'registrosOffline.Columns.Add("id", GetType(Integer))
+        'registrosOffline.Columns.Add("idSensor", GetType(Integer))
+        'registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
 
-        registrosOffline.Columns.Add("id", GetType(Integer))
-        registrosOffline.Columns.Add("idSensor", GetType(Integer))
-        registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
+        'bgwHelper.WorkerSupportsCancellation = True
 
-        bgwHelper.WorkerSupportsCancellation = True
-
-        IniciaBackgroundworker("ValidaLicencia")
+        'IniciaBackgroundworker("ValidaLicencia")
     End Sub
 
 
 
 
     Sub RutinaLoad()
-
-
-
-
-
         'If ChequeaNuevaVersionEnApi() Then
         '    Console.WriteLine($"Nueva versión disponible")
         '    Configuraciones.ActualizacionDisponible = True
@@ -886,11 +889,8 @@ Public Class FormPrincipal
         End Try
     End Function
 
-
     Sub EnviaCaracterArduino(Caracter As String)
-        'enviar la ubicacion del sensor junto con la pocicion
         If SerialPort1.IsOpen Then
-            'nothign of mather
             Try
                 SerialPort1.WriteTimeout = 3000
                 SerialPort1.WriteLine(Caracter)
@@ -990,32 +990,161 @@ Public Class FormPrincipal
         p.Start()
     End Sub
 
+    Public Function FiltroLetraEntradaSalida(Valor As String) As Char
+        'patronar regex con lo envviado
+        Dim Caracter As Char
+        Dim regexIO As New Regex("^(([IQ])[0-1]_(1[0-2]|[0-9]))$")
+        If regexIO.IsMatch(Valor) Then
+            Dim ValorFinal As Integer = 0
+            Dim Largo = 2
+            'constantes
+            Dim BaseIs As Integer = 65
+            Dim BaseQs As Integer = BaseIs + 13
+            If Valor.Length <= 4 Then
+                Largo -= 1
+            End If
+
+            ValorFinal = CInt(Valor.Substring(3, Largo))
+            If Valor.Contains("Q") Then
+                ValorFinal += BaseQs
+            ElseIf Valor.Contains("I") Then
+                ValorFinal += BaseIs
+            End If
+
+            If ValorFinal >= 65 And ValorFinal <= 85 Then
+                Caracter = ChrW(ValorFinal)
+            Else
+                Caracter = Nothing
+            End If
+        Else
+            Caracter = Nothing
+        End If
+        Return Caracter
+    End Function
+
+    Public Sub EnviarCambioPines(valor As String, posicion As Integer)
+        Try
+            Dim Paso1, Paso2, Paso3 As String
+            If posicion >= 0 And posicion <= 2 Then '0,1,2
+                Paso1 = Str(posicion)
+                EnviaCaracterArduino(Paso1)
+                Trace.WriteLine("paso1")
+                Paso2 = FiltroLetraEntradaSalida(valor)
+                If Paso2 IsNot Nothing Then
+                    EnviaCaracterArduino(Paso2)
+                    Paso3 = "0"
+                    EnviaCaracterArduino(Paso3)
+                    Trace.WriteLine("terminando con el ultimo paso completado")
+                End If
+            End If
+            Trace.WriteLine("funcion terminada buien")
+            'MuestraMensaje("Error  X2X", 0)
+        Catch ex As Exception
+            Trace.WriteLine("Error envaindo cambio pines detalles: " & ex.Message)
+        End Try
+        'enviar el numero a de la entrada a cmaibar
+        '  Case 65 :  //A
+        '  NuevoValor = I0_0;
+        '  break;
+        'Case 66 :  //B
+        '  NuevoValor = I0_1;
+        '  break;
+        'Case 67 :  //C
+        '  NuevoValor = I0_2;
+        '  break;
+        'Case 68 :  //D
+        '  NuevoValor = I0_3;
+        '  break;
+        'Case 69 :  //F
+        '  NuevoValor = I0_4;
+        '  break;
+        'Case 70 :  //G
+        '  NuevoValor = I0_5;
+        '  break;
+        'Case 71 :  //H
+        '  NuevoValor = I0_6;
+        '  break;
+        'Case 72 :  //I
+        '  NuevoValor = I0_7;
+        '  break;
+        'Case 73 :  //J
+        '  NuevoValor = I0_8;
+        '  break;
+        'Case 74 :  //K
+        '  NuevoValor = I0_9;
+        '  break;
+        'Case 75 :  //L
+        '  NuevoValor = I0_10;
+        '    break;
+        'Case 76 :  //M
+        '  NuevoValor = I0_11;
+        '  break;
+        'Case 77 :  //N
+        '  NuevoValor = I0_12;
+        '  break;
+        'Case 78 :  //O
+        '  NuevoValor = Q0_0;
+        '  break;
+        'Case 79 :  //P
+        '  NuevoValor = Q0_1;
+        '  break;
+        'Case 80 :  //Q
+        '  NuevoValor = Q0_2;
+        '  break;
+        'Case 81 :  //R
+        '  NuevoValor = Q0_3;
+        '  break;
+        'Case 82 :  //S
+        '  NuevoValor = Q0_4;
+        '  break;
+        'Case 83 :  //T
+        '  NuevoValor = Q0_5;
+        '  break;
+        'Case 84 :  //U
+        '  NuevoValor = Q0_6;
+        '  break;
+        'Dim Letra As String
+        'segun algo entronces asignar letra
+        'Letra = Letra.ToUpper()
+        'se subira primero la direccion addres de la EEPROM x,y,z(entrada1,entrada2,salida1)
+        'luego se obtendra segun el datatable si fue cambiado desde la base de datos  el 
+        'numero de pin representado por una letra mayuscula de la A - U
+        'si estos 2 pasos no generaron errores entonces mandar el 0 de confirmacion, 
+        'i cambiando el valor en la memoria EEPROM junto con cargar dentro del loop los pines
+        'si da error 3 veces en la comunicacion entonces el plc dira que se quedo sin confirmacion despues de completar 100 ciclos, 1 segundo
+        'se reiniciara a los valores a 0 evitando el cambio  y por programa se quedara como el anterior dando mensaje de error y seteando al 
+        'valor anterior del que se cambio, tambien añadir un loader  y alertas
+
+    End Sub
+
     Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
-        Dim Hilo As New Thread(AddressOf ObtenerSensores)
-        Hilo.Start()
+        HiloSensores = New Thread(AddressOf ObtenerSensores)
+        HiloSensores.Start()
         'mientras tengan datos entonces que compare
         If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
+            'se deben enviar caracteres
             'sensor1 cambio
             If EntradaSensor1 IsNot Nothing Or EntradaSensor1 <> "" Then
                 'aqui puede cambiar al acutalizar
                 If EntradaSensor1 <> Sensor1AltDatatable(0)(5) Then
-                    EnviaCaracterArduino(Sensor1AltDatatable(0)(5))
+                    'hacer que un hilo se encargue como proceso independiente
+                    'Dim hilo As New Thread(AddressOf EnviarCambioPines(Sensor1AltDatatable(0)(5)))
                     'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
                 End If
             Else
                 'si es nada
-                EntradaSensor1 = Sensor1AltDatatable(0)(5)
+                'IntradaSensor1 = Sensor1AltDatatable(0)(5)
             End If
             'sensor 2 cambio
             If EntradaSensor2 IsNot Nothing Or EntradaSensor2 <> "" Then
                 'aqui puede cambiar al acutalizar
-                If EntradaSensor2 <> Sensor2AltDatatable(0)(5) Then
-                    EnviaCaracterArduino(Sensor2AltDatatable(0)(5))
-                    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
-                End If
+                'If EntradaSensor2 <> Sensor2AltDatatable(0)(5) Then
+                '    EnviaCaracterArduino(Sensor2AltDatatable(0)(5))
+                '    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
+                'End If
             Else
                 'si es nada
-                EntradaSensor1 = Sensor1AltDatatable(0)(5)
+                'EntradaSensor1 = Sensor1AltDatatable(0)(5)
             End If
         End If
     End Sub
