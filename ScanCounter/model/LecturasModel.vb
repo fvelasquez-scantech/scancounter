@@ -1,13 +1,16 @@
 ﻿Imports System.Data.SqlClient
 Imports System.Web.Caching
+Imports System.Web.Management
 
 Public Class LecturasModel
 
 #Region "Propiedades"
     Public Property Id As Integer
+
+    Public Property IdEquipo As Integer
+
     Public Property IdSensor As Integer
     Public Property FechaInsercion As Date
-
 
     Private Shared ReadOnly comandoCreacionTablaTemporalProductos As String =
                                 "CREATE TABLE ##insertar_lecturas_temp(
@@ -29,11 +32,13 @@ Public Class LecturasModel
             }
             command.Parameters.AddWithValue("@id_sensor", IdSensor)
             command.Parameters.AddWithValue("@fecha_insercion", FechaInsercion)
+            command.Parameters.AddWithValue("@id_equipo", IdEquipo)
             connection.Open()
             Await command.ExecuteNonQueryAsync
+            Trace.WriteLine("wenas")
             Return 1
         Catch ex As Exception
-            'Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
+            Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
             Return 0
         Finally
             If connection.State = ConnectionState.Open Then
@@ -85,5 +90,7 @@ Public Class LecturasModel
             End If
         End Try
     End Function
+
+
 #End Region
 End Class

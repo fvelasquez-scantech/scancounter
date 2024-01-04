@@ -87,6 +87,7 @@
     <Compile Include="ApplicationEvents.vb" />
     <Compile Include="Configuration.vb" />
     <Compile Include="lib\SecurityWrapper.vb" />
+    <Compile Include="model\BatchModel.vb" />
     <Compile Include="model\ConfiguracionesModel.vb" />
     <Compile Include="model\LecturasModel.vb" />
     <Compile Include="model\SensoresModel.vb" />

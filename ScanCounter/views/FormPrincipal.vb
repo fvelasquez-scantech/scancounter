@@ -15,6 +15,10 @@ Imports System.Security.Cryptography.X509Certificates
 Imports System.Data.SqlTypes
 Imports System.Net.NetworkInformation
 Imports System.Text.RegularExpressions
+Imports Newtonsoft.Json
+Imports System.Text
+Imports System.Web.UI
+Imports System.Runtime.InteropServices.ComTypes
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -29,6 +33,7 @@ Public Class FormPrincipal
     Private ReadOnly Sensores As SensoresModel
     Private ReadOnly Lecturas As LecturasModel
     Private ReadOnly Wrapper As SecurityWrapper
+    Private ReadOnly Batch As BatchModel
 
     'Datatables
     Private bgResultado As DataTable
@@ -47,10 +52,16 @@ Public Class FormPrincipal
     Private ConfiguracionesDatatable As DataTable
     Private SensorOfflineRegDataTable As DataTable
 
+
+    Private BatchsDatatable As New DataTable
+
+
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
     Private DelegadoArduino As New myMethodDelegate(AddressOf DataArduino)
     Private DelegadoMensajes As New myMethodDelegate(AddressOf MuestraPanel)
+
+    Private PathBatch As String = "C:\Scantech\batch.json"
 
     'Variables globales
     Private conexionDb As Boolean = False
@@ -60,12 +71,31 @@ Public Class FormPrincipal
     Private IdSensor1 As Byte = 5
     Private IdSensor2 As Byte = 6
 
+    Private IdEquipo1 As Byte = 1
+    Private IdEquipo2 As Byte = 2
 
-    Private NombreEquipo As String
+    Private NombreEquipo1 As String
+    Private NombreEquipo2 As String
+
+
     Private SalidaSensor As String
+
     Private EntradaSensor1 As String
     Private EntradaSensor2 As String
-    Private LimiteBatch As String
+
+    Private LimiteBatch1 As Integer
+    Private LimiteBatch2 As Integer
+
+    Private ConteoBatch1 As Integer
+    Private ConteoBatch2 As Integer
+
+    Private FechaInicioBatch1 As DateTime
+    Private FechaInicioBatch2 As DateTime
+    Private FechaBatch As DateTime
+
+    Private fs As FileStream
+    Private sw As StreamWriter
+
 
     Private HiloSensores As Thread
 
@@ -103,6 +133,7 @@ Public Class FormPrincipal
         AddHandler Application.ThreadException, AddressOf Application_ThreadException
         AddHandler AppDomain.CurrentDomain.UnhandledException, AddressOf CurrentDomain_UnhandledException
 
+
         ' Esta llamada es exigida por el diseñador.
         InitializeComponent()
 
@@ -111,13 +142,14 @@ Public Class FormPrincipal
         Sensores = New SensoresModel
         Lecturas = New LecturasModel
         Wrapper = New SecurityWrapper
+        Batch = New BatchModel
+
+
         'AddHandler TimerSensores.Tick, AddressOf sensore
         AddHandler TimerOffline.Tick, AddressOf TimerOffline_Tick
         AddHandler TimerRed.Tick, AddressOf TimerRed_tick ' unico tick constante, el resto se llama por eventos
     End Sub
 #End Region
-
-
     Private Sub getPrevInstance()
         Dim currPrsName As String = Process.GetCurrentProcess().ProcessName
         Dim allProcessWithThisName() As Process = Process.GetProcessesByName(currPrsName)
@@ -154,41 +186,77 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        'Dim val As String = "Q0_4"
-        'Trace.WriteLine(" caracter enviado =  " & val & " convertido en  == " & FiltroLetraEntradaSalida(val))
-        'CAMBIO NORMAL
-        EnviarCambioPines("I0_11", 0)
-        EnviarCambioPines("I0_12", 1)
-        'getPrevInstance()
-        'If Not IO.File.Exists(logErrores) Then
-        '    fsErrores = IO.File.Create(logErrores)
-        '    fsErrores.Close()
-        'End If
 
-        'TimerSensores.Start()
-        'TimerUpdater.Start()
-        'TimerRed.Start()
-        'Iniciando = True
+        'constuyendo la tabla batch
+        BatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
+        BatchsDatatable.Columns.Add("nombre_equipo", GetType(Integer))
+        BatchsDatatable.Columns.Add("fecha_inicio", GetType(DateTime))
+        BatchsDatatable.Columns.Add("fecha_termino", GetType(DateTime))
+
+        If Not IO.File.Exists(PathBatch) Then
+            fs = IO.File.Create(PathBatch)
+        Else
+            fs = IO.File.Open(PathBatch, FileMode.Open)
+        End If
+
+        'fs ya seteado para escribir
+        getPrevInstance()
+        If Not IO.File.Exists(logErrores) Then
+            fsErrores = IO.File.Create(logErrores)
+            fsErrores.Close()
+        End If
+
+        TimerSensores.Start()
+        TimerUpdater.Start()
+        TimerRed.Start()
+        Iniciando = True
         'Cursor.Hide()
 
-        'PbxLoadingSensor1.Show()
-        'PbxLoadingSensor1.BringToFront()
+        PbxLoadingSensor1.Show()
+        PbxLoadingSensor1.BringToFront()
 
-        'PbxLoadingSensor2.Show()
-        'PbxLoadingSensor2.BringToFront()
+        PbxLoadingSensor2.Show()
+        PbxLoadingSensor2.BringToFront()
 
-        'PbxLoading3.BringToFront()
+        PbxLoading3.BringToFront()
 
-        'registrosOffline.Columns.Add("id", GetType(Integer))
-        'registrosOffline.Columns.Add("idSensor", GetType(Integer))
-        'registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
+        registrosOffline.Columns.Add("id", GetType(Integer))
+        registrosOffline.Columns.Add("idSensor", GetType(Integer))
+        registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
+        registrosOffline.Columns.Add("idEquipo", GetType(Integer))
 
-        'bgwHelper.WorkerSupportsCancellation = True
+        bgwHelper.WorkerSupportsCancellation = True
 
-        'IniciaBackgroundworker("ValidaLicencia")
+        IniciaBackgroundworker("ValidaLicencia")
     End Sub
-
-
+    Public Function ReadJson() As DataTable
+        Dim json As String
+        Using reader As New StreamReader(fs)
+            json = reader.ReadToEnd()
+        End Using
+        Dim dt_result As DataTable = JsonConvert.DeserializeObject(Of DataTable)(json)
+        Dim dt As New DataTable
+        If dt_result IsNot Nothing Then
+            If dt_result.Rows.Count > 0 Then
+                dt = dt_result
+            End If
+        Else
+            dt = Nothing
+        End If
+        Return dt
+    End Function
+    Public Sub WriteJson(dt As DataTable)
+        Try
+            Dim JSONString As String = JsonConvert.SerializeObject(dt, Xml.Formatting.Indented)
+            Using writer As New StreamWriter(fs)
+                writer.WriteLine(JSONString)
+            End Using
+        Catch exio As IOException
+            MuestraMensaje("Error 532", 0)
+        Catch ex As Exception
+            MuestraMensaje("Error 522", 0)
+        End Try
+    End Sub
 
 
     Sub RutinaLoad()
@@ -220,6 +288,7 @@ Public Class FormPrincipal
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
                 SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
+
                 COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
 
                 'Console.WriteLine($"Iniciando conexión al puerto {COM}")
@@ -254,6 +323,7 @@ Public Class FormPrincipal
         If conexionDb Then
             If registrosOffline.Rows.Count > 0 Then
                 Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
+
                 If resp = 1 Then
                     registrosOffline.Clear()
                 Else
@@ -301,8 +371,9 @@ Public Class FormPrincipal
             PbxNetworkStatus.Hide()
             PanelLoadingS1.BackColor = Navy
             PanelLoadingS2.BackColor = SlateBlue
-            Panel4.BackColor = SteelBlue
+            Panel4.BackColor = MidnightBlue
         End If
+
         'Trace.WriteLine("ping " & conexionDb & " contador " & contadorLecturasSinBd)
 
         If registrosOffline IsNot Nothing Then
@@ -538,12 +609,7 @@ Public Class FormPrincipal
                         'Trace.WriteLine("wenisimas")
                         LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
 
-                        'aqui buscar la entrada
-
                         'If Sensor1Datatable.Rows(5)(1) Then
-
-
-
                         LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
                         Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
@@ -645,9 +711,11 @@ Public Class FormPrincipal
 #End Region
 
 #Region "Insertar lectura"
-    Async Sub RutinaInsertar(IdSensor As Integer)
+    Async Sub RutinaInsertar(IdSensor As Integer, IdEquipo As Integer)
         Lecturas.IdSensor = IdSensor
         Lecturas.FechaInsercion = Now
+        Lecturas.IdEquipo = IdEquipo
+        Trace.WriteLine("wenas")
         Await InsertarAsync()
         'InsertarAsync()
     End Sub
@@ -694,7 +762,7 @@ Public Class FormPrincipal
         Try
             With SerialPort1
                 .PortName = puerto
-                .BaudRate = 9600
+                .BaudRate = 115200
                 .DataBits = 8
                 .Parity = IO.Ports.Parity.None
                 .StopBits = IO.Ports.StopBits.One
@@ -740,13 +808,19 @@ Public Class FormPrincipal
                             Select Case Sensor1Estado
                                 Case 1
                                     If conexionDb Then
-                                        RutinaInsertar(IdSensor1)
+                                        Trace.WriteLine("anmus")
+                                        RutinaInsertar(IdSensor1, 1)
                                     Else
                                         Dim row As DataRow = registrosOffline.NewRow
                                         row(0) = registrosOffline.Rows.Count + 1
                                         row(1) = IdSensor1
                                         row(2) = Now
+                                        row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
+                                    End If
+
+                                    If LimiteBatch1 <= ConteoBatch1 Then
+                                        CrearBatch(IdSensor2, NombreEquipo1, IdEquipo1)
                                     End If
                             End Select
                         End If
@@ -762,13 +836,18 @@ Public Class FormPrincipal
                             Select Case Sensor2Estado
                                 Case 1
                                     If conexionDb Then
-                                        RutinaInsertar(IdSensor2)
+                                        RutinaInsertar(IdSensor2, 2)
                                     Else
                                         Dim row As DataRow = registrosOffline.NewRow
                                         row(0) = registrosOffline.Rows.Count + 1
                                         row(1) = IdSensor2
                                         row(2) = Now
+                                        row(3) = IdEquipo2
                                         registrosOffline.Rows.Add(row)
+                                    End If
+
+                                    If LimiteBatch2 >= LimiteBatch2 Then
+                                        CrearBatch(IdSensor2, NombreEquipo2, IdEquipo2)
                                     End If
                             End Select
                         End If
@@ -793,6 +872,67 @@ Public Class FormPrincipal
             MuestraMensaje("Error 552", 2)
         End Try
     End Sub
+    Private Sub CrearBatch(idSensor As Integer, IdEquipo As Integer, NombreEquipo As String)
+
+
+        'intentar ver si el json de batchs se encuentra bien
+
+
+
+        Dim FechaInicioBatchLocal As New DateTime
+        If IdEquipo = 1 Then
+            FechaInicioBatchLocal = FechaInicioBatch1
+        Else
+            FechaInicioBatchLocal = FechaInicioBatch2
+        End If
+
+        Dim FechaTerminoBatch As New DateTime
+        Dim Fechasegundos As New DateTime
+
+        FechaBatch = Now
+        'se añade tiempo siempre pensandoen que la ejecucion  del  ultimo pesaje se esta realizando
+        Fechasegundos = Now.AddSeconds(1)
+
+        If conexionDb Then
+            Batch.IdEquipo = idSensor
+            Batch.FechaInicio = FechaInicioBatchLocal
+            Batch.NombreEquipo = NombreEquipo1
+
+            Dim resp = Batch.InsertarBatch()
+            'Else
+            '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
+
+        End If
+
+
+        'como obtener el conteo actual de cuantas piezas tiene sin  tener que preguntar en la base de datos
+
+
+        ''counBatchsDatatable.Columns.Add("id", GetType(Integer))
+        'counBatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
+        'counBatchsDatatable.Columns.Add("nombre_equipo", GetType(Integer))
+        'counBatchsDatatable.Columns.Add("fecha_inicio", GetType(DateTime))
+        'counBatchsDatatable.Columns.Add("fecha_termino", GetType(DateTime))
+
+
+
+
+
+        'Insertar
+        ' insertando normalmente en la tabla de 
+        ' como respuesta registrandolo lo ultimo en le  json
+
+
+        'Reseteando la insersion del batch
+        If IdEquipo = 1 Then
+            FechaInicioBatch1 = Now
+        Else
+            FechaInicioBatch2 = Now
+        End If
+
+    End Sub
+
+
 
     Private Sub SerialPort_DataReceived(sender As Object, e As IO.Ports.SerialDataReceivedEventArgs) Handles SerialPort1.DataReceived
         Invoke(DelegadoArduino)
@@ -894,6 +1034,9 @@ Public Class FormPrincipal
             Try
                 SerialPort1.WriteTimeout = 3000
                 SerialPort1.WriteLine(Caracter)
+                'If Not Caracter.Contains("a") Or Not Caracter.Contains("b") Then
+                '    Trace.WriteLine("caracter enviado (" & Caracter & ")")
+                'End If
                 PbxComStatus.Image = My.Resources.green_dot
             Catch ex As Exception
                 DisconnectPort()
@@ -993,32 +1136,38 @@ Public Class FormPrincipal
     Public Function FiltroLetraEntradaSalida(Valor As String) As Char
         'patronar regex con lo envviado
         Dim Caracter As Char
-        Dim regexIO As New Regex("^(([IQ])[0-1]_(1[0-2]|[0-9]))$")
-        If regexIO.IsMatch(Valor) Then
-            Dim ValorFinal As Integer = 0
-            Dim Largo = 2
-            'constantes
-            Dim BaseIs As Integer = 65
-            Dim BaseQs As Integer = BaseIs + 13
-            If Valor.Length <= 4 Then
-                Largo -= 1
-            End If
+        Try
+            Dim regexIO As New Regex("^(([IQ])[0-1]_(1[0-2]|[0-9]))$")
+            If regexIO.IsMatch(Valor) Then
+                Dim ValorFinal As Integer = 0
+                Dim Largo = 2
+                'constantes
+                Dim BaseIs As Integer = 65
+                Dim BaseQs As Integer = BaseIs + 13
+                If Valor.Length <= 4 Then
+                    Largo -= 1
+                End If
 
-            ValorFinal = CInt(Valor.Substring(3, Largo))
-            If Valor.Contains("Q") Then
-                ValorFinal += BaseQs
-            ElseIf Valor.Contains("I") Then
-                ValorFinal += BaseIs
-            End If
+                ValorFinal = CInt(Valor.Substring(3, Largo))
+                If Valor.Contains("Q") Then
+                    ValorFinal += BaseQs
+                ElseIf Valor.Contains("I") Then
+                    ValorFinal += BaseIs
+                End If
 
-            If ValorFinal >= 65 And ValorFinal <= 85 Then
-                Caracter = ChrW(ValorFinal)
+                If ValorFinal >= 65 And ValorFinal <= 85 Then
+                    Caracter = ChrW(ValorFinal)
+                    Trace.WriteLine("caracter obtenido por filtro  = " & Caracter)
+                Else
+                    Caracter = Nothing
+                End If
             Else
                 Caracter = Nothing
             End If
-        Else
+        Catch ex As Exception
+            Trace.WriteLine("error en la asignacion de variable normal" & ex.Message)
             Caracter = Nothing
-        End If
+        End Try
         Return Caracter
     End Function
 
@@ -1026,9 +1175,17 @@ Public Class FormPrincipal
         Try
             Dim Paso1, Paso2, Paso3 As String
             If posicion >= 0 And posicion <= 2 Then '0,1,2
-                Paso1 = Str(posicion)
+                Select Case posicion
+                    Case 0
+                        Paso1 = "x"
+                    Case 1
+                        Paso1 = "y"
+                    Case 2
+                        Paso1 = "z"
+                End Select
+                Trace.WriteLine(Paso1 & " es lo que envia")
                 EnviaCaracterArduino(Paso1)
-                Trace.WriteLine("paso1")
+                Trace.WriteLine("paso1 enviado")
                 Paso2 = FiltroLetraEntradaSalida(valor)
                 If Paso2 IsNot Nothing Then
                     EnviaCaracterArduino(Paso2)
@@ -1038,74 +1195,11 @@ Public Class FormPrincipal
                 End If
             End If
             Trace.WriteLine("funcion terminada buien")
-            'MuestraMensaje("Error  X2X", 0)
+
         Catch ex As Exception
             Trace.WriteLine("Error envaindo cambio pines detalles: " & ex.Message)
         End Try
-        'enviar el numero a de la entrada a cmaibar
-        '  Case 65 :  //A
-        '  NuevoValor = I0_0;
-        '  break;
-        'Case 66 :  //B
-        '  NuevoValor = I0_1;
-        '  break;
-        'Case 67 :  //C
-        '  NuevoValor = I0_2;
-        '  break;
-        'Case 68 :  //D
-        '  NuevoValor = I0_3;
-        '  break;
-        'Case 69 :  //F
-        '  NuevoValor = I0_4;
-        '  break;
-        'Case 70 :  //G
-        '  NuevoValor = I0_5;
-        '  break;
-        'Case 71 :  //H
-        '  NuevoValor = I0_6;
-        '  break;
-        'Case 72 :  //I
-        '  NuevoValor = I0_7;
-        '  break;
-        'Case 73 :  //J
-        '  NuevoValor = I0_8;
-        '  break;
-        'Case 74 :  //K
-        '  NuevoValor = I0_9;
-        '  break;
-        'Case 75 :  //L
-        '  NuevoValor = I0_10;
-        '    break;
-        'Case 76 :  //M
-        '  NuevoValor = I0_11;
-        '  break;
-        'Case 77 :  //N
-        '  NuevoValor = I0_12;
-        '  break;
-        'Case 78 :  //O
-        '  NuevoValor = Q0_0;
-        '  break;
-        'Case 79 :  //P
-        '  NuevoValor = Q0_1;
-        '  break;
-        'Case 80 :  //Q
-        '  NuevoValor = Q0_2;
-        '  break;
-        'Case 81 :  //R
-        '  NuevoValor = Q0_3;
-        '  break;
-        'Case 82 :  //S
-        '  NuevoValor = Q0_4;
-        '  break;
-        'Case 83 :  //T
-        '  NuevoValor = Q0_5;
-        '  break;
-        'Case 84 :  //U
-        '  NuevoValor = Q0_6;
-        '  break;
-        'Dim Letra As String
-        'segun algo entronces asignar letra
-        'Letra = Letra.ToUpper()
+
         'se subira primero la direccion addres de la EEPROM x,y,z(entrada1,entrada2,salida1)
         'luego se obtendra segun el datatable si fue cambiado desde la base de datos  el 
         'numero de pin representado por una letra mayuscula de la A - U
@@ -1122,30 +1216,63 @@ Public Class FormPrincipal
         HiloSensores.Start()
         'mientras tengan datos entonces que compare
         If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
-            'se deben enviar caracteres
-            'sensor1 cambio
-            If EntradaSensor1 IsNot Nothing Or EntradaSensor1 <> "" Then
-                'aqui puede cambiar al acutalizar
-                If EntradaSensor1 <> Sensor1AltDatatable(0)(5) Then
-                    'hacer que un hilo se encargue como proceso independiente
-                    'Dim hilo As New Thread(AddressOf EnviarCambioPines(Sensor1AltDatatable(0)(5)))
-                    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
+            'cuando se levante la primera vez, como puedo saber si el pin dado existe,
+            'solamente cuando tenga conexion con la base de datos y la no se interrumpa
+            If EntradaSensor1 IsNot Nothing Then
+                'Trace.WriteLine("sensor 1 = " & EntradaSensor1)
+                If EntradaSensor1 <> Sensor1AltDatatable(0)(3) Then
+                    EntradaSensor1 = Sensor1AltDatatable(0)(3)
+                    'Trace.WriteLine("cambiandoSensor1 a " & EntradaSensor1)
+                    EnviarCambioPines(EntradaSensor1, 0)
                 End If
             Else
-                'si es nada
-                'IntradaSensor1 = Sensor1AltDatatable(0)(5)
+                EntradaSensor1 = Sensor1AltDatatable(0)(3)
             End If
-            'sensor 2 cambio
-            If EntradaSensor2 IsNot Nothing Or EntradaSensor2 <> "" Then
-                'aqui puede cambiar al acutalizar
-                'If EntradaSensor2 <> Sensor2AltDatatable(0)(5) Then
-                '    EnviaCaracterArduino(Sensor2AltDatatable(0)(5))
-                '    'hay que ver si el  arduino relizo una almacenamiento directo en la emprom, como respuesta, hay que nivelar esto
-                'End If
+            If EntradaSensor2 IsNot Nothing Then
+                'Trace.WriteLine("sensor 2 = " & EntradaSensor2)
+                If EntradaSensor2 <> Sensor2AltDatatable(0)(3) Then
+                    EntradaSensor2 = Sensor2AltDatatable(0)(3)
+                    'Trace.WriteLine("cambiandoSensor2 a " & EntradaSensor2)
+                    EnviarCambioPines(EntradaSensor2, 1)
+                End If
             Else
-                'si es nada
-                'EntradaSensor1 = Sensor1AltDatatable(0)(5)
+                EntradaSensor2 = Sensor2AltDatatable(0)(3)
             End If
+        End If
+
+        If ConfiguracionesDatatable IsNot Nothing Then
+            'ImprimeDatatable(ConfiguracionesDatatable, "ewenas")
+            If SalidaSensor <> ConfiguracionesDatatable.Rows(0)(6) Then
+                SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
+                EnviarCambioPines(SalidaSensor, 2)
+            End If
+        End If
+    End Sub
+
+    Public Sub ImprimeDatatable(dt As DataTable, nombre_tabla As String)
+        Trace.WriteLine("Imprimiendo datatable '" & nombre_tabla & "'")
+        If dt IsNot Nothing Then
+            Trace.WriteLine("Total Filas: " & dt.Rows.Count)
+            Trace.WriteLine("Total Columnas: " & dt.Columns.Count)
+            For j As Integer = 0 To dt.Columns.Count - 1
+                Trace.Write(CStr(j) & ":'" & dt.Columns(j).ColumnName & "'(" & dt.Columns(j).DataType.Name & ") ")
+            Next
+            'Imprimo el datatable
+            For i As Integer = 0 To dt.Rows.Count - 1
+                Trace.WriteLine("")
+                Trace.Write("fila " & i & " | ")
+                For j As Integer = 0 To dt.Columns.Count - 1
+
+                    If dt.Rows(i)(j) IsNot DBNull.Value Then
+                        Trace.Write("(" & CStr(j) & "): " & CStr(dt.Rows(i)(j)) & "; ")
+                    Else
+                        Trace.Write("(" & CStr(j) & "): " & "Null; ")
+                    End If
+                Next
+
+            Next
+        Else
+            Trace.WriteLine("La tabla es Nothing")
         End If
     End Sub
 
@@ -1153,12 +1280,23 @@ Public Class FormPrincipal
 
 
     Public Sub ObtenerSensores()
+        Configuraciones.Id = 1 'siempre la primera
+        ConfiguracionesDatatable = Configuraciones.Listar()
         Sensores.Id = IdSensor1
         Sensor1AltDatatable = Sensores.ListarAlt
         Sensores.Id = IdSensor2
         Sensor2AltDatatable = Sensores.ListarAlt
     End Sub
 
+    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        EnviaCaracterArduino("j")
+        'Trace.WriteLine("caracter j enviado")
+    End Sub
+
+    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+        EnviaCaracterArduino("k")
+        'Trace.WriteLine("caracter k enviado")
+    End Sub
 
 #End Region
 
