@@ -37,11 +37,13 @@ Partial Class FormPrincipal
         Me.PbxNetworkStatus = New System.Windows.Forms.PictureBox()
         Me.PbxComStatus = New System.Windows.Forms.PictureBox()
         Me.Panel6 = New System.Windows.Forms.Panel()
+        Me.PbxEstadoPaleta = New System.Windows.Forms.PictureBox()
         Me.PbxLoading3 = New System.Windows.Forms.PictureBox()
         Me.LblTotal = New System.Windows.Forms.Label()
         Me.Label5 = New System.Windows.Forms.Label()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.LblLectura1 = New System.Windows.Forms.Label()
+        Me.Button1 = New System.Windows.Forms.Button()
         Me.LblSensor1Estado = New System.Windows.Forms.Label()
         Me.Panel3 = New System.Windows.Forms.Panel()
         Me.PanelLoadingS1 = New System.Windows.Forms.Panel()
@@ -49,6 +51,7 @@ Partial Class FormPrincipal
         Me.PbxLoading4 = New System.Windows.Forms.PictureBox()
         Me.PbxLoadingSensor1 = New System.Windows.Forms.PictureBox()
         Me.Panel2 = New System.Windows.Forms.Panel()
+        Me.Button2 = New System.Windows.Forms.Button()
         Me.LblLectura2 = New System.Windows.Forms.Label()
         Me.LblSensor2Estado = New System.Windows.Forms.Label()
         Me.Panel5 = New System.Windows.Forms.Panel()
@@ -65,13 +68,12 @@ Partial Class FormPrincipal
         Me.TimerRed = New System.Windows.Forms.Timer(Me.components)
         Me.TimerOffline = New System.Windows.Forms.Timer(Me.components)
         Me.TimerSensores = New System.Windows.Forms.Timer(Me.components)
-        Me.Button1 = New System.Windows.Forms.Button()
-        Me.Button2 = New System.Windows.Forms.Button()
         Me.Panel4.SuspendLayout()
         Me.PanelError.SuspendLayout()
         CType(Me.PbxNetworkStatus, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.PbxComStatus, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.Panel6.SuspendLayout()
+        CType(Me.PbxEstadoPaleta, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.PbxLoading3, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.Panel1.SuspendLayout()
         Me.Panel3.SuspendLayout()
@@ -159,7 +161,7 @@ Partial Class FormPrincipal
         Me.PanelError.BackColor = System.Drawing.Color.Salmon
         Me.PanelError.Controls.Add(Me.LblError)
         Me.PanelError.Font = New System.Drawing.Font("Arial", 15.75!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.PanelError.Location = New System.Drawing.Point(783, 6)
+        Me.PanelError.Location = New System.Drawing.Point(806, 6)
         Me.PanelError.Name = "PanelError"
         Me.PanelError.Size = New System.Drawing.Size(333, 54)
         Me.PanelError.TabIndex = 25
@@ -221,6 +223,16 @@ Partial Class FormPrincipal
         Me.Panel6.Size = New System.Drawing.Size(1891, 363)
         Me.Panel6.TabIndex = 24
         '
+        'PbxEstadoPaleta
+        '
+        Me.PbxEstadoPaleta.Image = Global.ScanCounter.My.Resources.Resources.PaletaAbierta
+        Me.PbxEstadoPaleta.Location = New System.Drawing.Point(8, 494)
+        Me.PbxEstadoPaleta.Name = "PbxEstadoPaleta"
+        Me.PbxEstadoPaleta.Size = New System.Drawing.Size(85, 68)
+        Me.PbxEstadoPaleta.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage
+        Me.PbxEstadoPaleta.TabIndex = 23
+        Me.PbxEstadoPaleta.TabStop = False
+        '
         'PbxLoading3
         '
         Me.PbxLoading3.Location = New System.Drawing.Point(53, 77)
@@ -279,6 +291,15 @@ Partial Class FormPrincipal
         Me.LblLectura1.Size = New System.Drawing.Size(18, 20)
         Me.LblLectura1.TabIndex = 25
         Me.LblLectura1.Text = "0"
+        '
+        'Button1
+        '
+        Me.Button1.Location = New System.Drawing.Point(879, 206)
+        Me.Button1.Name = "Button1"
+        Me.Button1.Size = New System.Drawing.Size(75, 23)
+        Me.Button1.TabIndex = 27
+        Me.Button1.Text = "Button1"
+        Me.Button1.UseVisualStyleBackColor = True
         '
         'LblSensor1Estado
         '
@@ -350,6 +371,7 @@ Partial Class FormPrincipal
         'Panel2
         '
         Me.Panel2.BackColor = System.Drawing.Color.Snow
+        Me.Panel2.Controls.Add(Me.PbxEstadoPaleta)
         Me.Panel2.Controls.Add(Me.Button2)
         Me.Panel2.Controls.Add(Me.LblLectura2)
         Me.Panel2.Controls.Add(Me.Label4)
@@ -362,6 +384,15 @@ Partial Class FormPrincipal
         Me.Panel2.Name = "Panel2"
         Me.Panel2.Size = New System.Drawing.Size(934, 568)
         Me.Panel2.TabIndex = 20
+        '
+        'Button2
+        '
+        Me.Button2.Location = New System.Drawing.Point(8, 206)
+        Me.Button2.Name = "Button2"
+        Me.Button2.Size = New System.Drawing.Size(75, 23)
+        Me.Button2.TabIndex = 28
+        Me.Button2.Text = "Button2"
+        Me.Button2.UseVisualStyleBackColor = True
         '
         'LblLectura2
         '
@@ -472,24 +503,6 @@ Partial Class FormPrincipal
         '
         Me.TimerSensores.Interval = 1000
         '
-        'Button1
-        '
-        Me.Button1.Location = New System.Drawing.Point(879, 206)
-        Me.Button1.Name = "Button1"
-        Me.Button1.Size = New System.Drawing.Size(75, 23)
-        Me.Button1.TabIndex = 27
-        Me.Button1.Text = "Button1"
-        Me.Button1.UseVisualStyleBackColor = True
-        '
-        'Button2
-        '
-        Me.Button2.Location = New System.Drawing.Point(8, 206)
-        Me.Button2.Name = "Button2"
-        Me.Button2.Size = New System.Drawing.Size(75, 23)
-        Me.Button2.TabIndex = 28
-        Me.Button2.Text = "Button2"
-        Me.Button2.UseVisualStyleBackColor = True
-        '
         'FormPrincipal
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -515,6 +528,7 @@ Partial Class FormPrincipal
         CType(Me.PbxComStatus, System.ComponentModel.ISupportInitialize).EndInit()
         Me.Panel6.ResumeLayout(False)
         Me.Panel6.PerformLayout()
+        CType(Me.PbxEstadoPaleta, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.PbxLoading3, System.ComponentModel.ISupportInitialize).EndInit()
         Me.Panel1.ResumeLayout(False)
         Me.Panel1.PerformLayout()
@@ -577,4 +591,5 @@ Partial Class FormPrincipal
     Friend WithEvents TimerSensores As Timer
     Friend WithEvents Button1 As Button
     Friend WithEvents Button2 As Button
+    Friend WithEvents PbxEstadoPaleta As PictureBox
 End Class

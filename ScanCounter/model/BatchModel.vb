@@ -1,10 +1,6 @@
 ﻿Imports System.Data.SqlClient
 
-
-
 Public Class BatchModel
-
-
 
     Public Property IdEquipo As Integer
     'Public Property FechaInsercion As DateTime

@@ -34,6 +34,7 @@ Public Class FormPrincipal
     Private ReadOnly Lecturas As LecturasModel
     Private ReadOnly Wrapper As SecurityWrapper
     Private ReadOnly Batch As BatchModel
+    Private ReadOnly Equipos As EquiposModel
 
     'Datatables
     Private bgResultado As DataTable
@@ -43,10 +44,15 @@ Public Class FormPrincipal
     'se utilizara la carga a travez de  hilos  para poder cargar mas rapido y actualizarlo durante la consulta nueva
     'se añadira un timer para ver cuando actualize los sensores y envie datos al arudino
 
+
+    Private Equipo1Datatable As DataTable
+    Private Equipo2Datatable As DataTable
+
     Private Sensor1AltDatatable As DataTable
     Private Sensor2AltDatatable As DataTable
     'Private TimerComprobarEntradas As timer
 
+    Private EstadoPaleta As Boolean
 
     Private registrosOffline As New DataTable
     Private ConfiguracionesDatatable As DataTable
@@ -68,26 +74,29 @@ Public Class FormPrincipal
 
     Private contadorLecturasSinBd As Integer = 0
 
+    'sensores
     Private IdSensor1 As Byte = 5
     Private IdSensor2 As Byte = 6
 
+    Private EntradaSensor1 As String
+    Private EntradaSensor2 As String
+
+    'equipos
     Private IdEquipo1 As Byte = 1
     Private IdEquipo2 As Byte = 2
 
     Private NombreEquipo1 As String
     Private NombreEquipo2 As String
 
-
-    Private SalidaSensor As String
-
-    Private EntradaSensor1 As String
-    Private EntradaSensor2 As String
-
     Private LimiteBatch1 As Integer
     Private LimiteBatch2 As Integer
 
     Private ConteoBatch1 As Integer
     Private ConteoBatch2 As Integer
+
+
+    Private SalidaSensor As String
+
 
     Private FechaInicioBatch1 As DateTime
     Private FechaInicioBatch2 As DateTime
@@ -143,7 +152,7 @@ Public Class FormPrincipal
         Lecturas = New LecturasModel
         Wrapper = New SecurityWrapper
         Batch = New BatchModel
-
+        Equipos = New EquiposModel
 
         'AddHandler TimerSensores.Tick, AddressOf sensore
         AddHandler TimerOffline.Tick, AddressOf TimerOffline_Tick
@@ -601,39 +610,47 @@ Public Class FormPrincipal
             Case "Ok"
                 Select Case Sensores.Id
                     Case IdSensor1
+
                         'If Iniciando Then
                         Contador1(0) = Sensor1Datatable.Rows(0)(4)
-                        LblContador1.Text = Contador1(0)
-                        AcomodaLabel("Contador1")
-                        'End If
-                        'Trace.WriteLine("wenisimas")
-                        LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
+                            LblContador1.Text = Contador1(0)
+                            'aqui
+                            'If Sensor1Datatable.Rows(0)(4) <> ConteoBatch1 Then
+                            '    ConteoBatch1 = Sensor1Datatable.Rows(0)(4)
+                            'End If
 
-                        'If Sensor1Datatable.Rows(5)(1) Then
-                        LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
+                            AcomodaLabel("Contador1")
+                                'End If
+                                'Trace.WriteLine("wenisimas")
+                                LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
 
-                        Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
+                                'If Sensor1Datatable.Rows(5)(1) Then
+                                LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
+                                Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
+                                PbxLoadingSensor1.Hide()
 
-                        PbxLoadingSensor1.Hide()
 
                         Sensores.Id = IdSensor2
-
                         IniciaBackgroundworker("ListarSensor")
                     Case IdSensor2
                         'If Iniciando Then
-                        Contador2(0) = Sensor2Datatable.Rows(0)(4)
-                        LblContador2.Text = Contador2(0)
-                        AcomodaLabel("Contador2")
+
+                        'If Sensor2Datatable.Rows(0)(4) <> ConteoBatch2 Then
+                        '    ConteoBatch2 = Sensor2Datatable.Rows(0)(4)
                         'End If
+                        LblContador2.Text = Contador2(0)
+                            AcomodaLabel("Contador2")
+                            'End If
 
-                        LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
-                        LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
+                            LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
+                            LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
-                        Sensor2Estado = Sensor2Datatable.Rows(0)(SensorIdEstadoIndex)
+                            Sensor2Estado = Sensor2Datatable.Rows(0)(SensorIdEstadoIndex)
+                            Contador2(0) = Sensor2Datatable.Rows(0)(4)
 
-                        PbxLoadingSensor2.Hide()
+                            PbxLoadingSensor2.Hide()
 
-                        If Not TimerEstado Then
+                            If Not TimerEstado Then
                             TimerEstado = True
                             IniciaTimer("ListarSensor")
                         Else
@@ -679,7 +696,17 @@ Public Class FormPrincipal
                 If LblContador2.Text <> "" Then
                     cont2 = CInt(LblContador2.Text)
                 End If
-                LblTotal.Text = "" & (Contador1(0) + Contador2(0)) & " Pzs"
+                Dim total As Integer
+                total = Contador1(0) + Contador2(0)
+
+                LblTotal.Text = "" & total & " Pzs"
+                'If total >= LimiteBatch1 Then
+                '    EnviaCaracterArduino("k")
+                'Else
+                '    EnviaCaracterArduino("j")
+                'End If
+
+
 
             Case "Error1"
                 MuestraMensaje("Error 220", 2)
@@ -715,7 +742,7 @@ Public Class FormPrincipal
         Lecturas.IdSensor = IdSensor
         Lecturas.FechaInsercion = Now
         Lecturas.IdEquipo = IdEquipo
-        Trace.WriteLine("wenas")
+        'Trace.WriteLine("wenas")
         Await InsertarAsync()
         'InsertarAsync()
     End Sub
@@ -795,6 +822,7 @@ Public Class FormPrincipal
 #Region "Delegado para puerto serial y función DataReceived de SerialPort"
     Sub DataArduino()
         Try
+
             'Lee desde arduino
             Dim lectura As String = SerialPort1.ReadExisting
             If Not String.IsNullOrWhiteSpace(lectura) Then
@@ -807,8 +835,9 @@ Public Class FormPrincipal
                         If TiempoLecturaTotal1 >= LecturaMinimaProducto And TiempoLecturaTotal1 <= LecturaMaximaProducto Then ' este formulario no existe
                             Select Case Sensor1Estado
                                 Case 1
+
+                                    Trace.WriteLine("limites 1 = " & LimiteBatch1 & " == " & ConteoBatch1 & "")
                                     If conexionDb Then
-                                        Trace.WriteLine("anmus")
                                         RutinaInsertar(IdSensor1, 1)
                                     Else
                                         Dim row As DataRow = registrosOffline.NewRow
@@ -819,9 +848,6 @@ Public Class FormPrincipal
                                         registrosOffline.Rows.Add(row)
                                     End If
 
-                                    If LimiteBatch1 <= ConteoBatch1 Then
-                                        CrearBatch(IdSensor2, NombreEquipo1, IdEquipo1)
-                                    End If
                             End Select
                         End If
                         TiempoLecturaTotal1 = 0
@@ -835,6 +861,7 @@ Public Class FormPrincipal
                         If TiempoLecturaTotal2 >= LecturaMinimaProducto And TiempoLecturaTotal2 <= LecturaMaximaProducto Then
                             Select Case Sensor2Estado
                                 Case 1
+                                    Trace.WriteLine("limites 2 = " & LimiteBatch2 & " == " & ConteoBatch2 & "")
                                     If conexionDb Then
                                         RutinaInsertar(IdSensor2, 2)
                                     Else
@@ -846,9 +873,11 @@ Public Class FormPrincipal
                                         registrosOffline.Rows.Add(row)
                                     End If
 
-                                    If LimiteBatch2 >= LimiteBatch2 Then
-                                        CrearBatch(IdSensor2, NombreEquipo2, IdEquipo2)
+                                    If ConteoBatch1 >= CInt(LblTotal.Text) Then
+                                        'CrearBatch()
+                                        'con
                                     End If
+
                             End Select
                         End If
 
@@ -856,6 +885,14 @@ Public Class FormPrincipal
                     Case "Y"
                         TimerTiempoLectura2.Enabled = True
                         TimerTiempoLectura2.Start()
+
+
+                    Case "L"
+                        EstadoPaleta = True
+                        PbxEstadoPaleta.Image = My.Resources.PaletaAbierta
+                    Case "S"
+                        EstadoPaleta = False
+                        PbxEstadoPaleta.Image = My.Resources.PaletaCerrada
                 End Select
 
                 LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
@@ -869,16 +906,15 @@ Public Class FormPrincipal
             AcomodaLabel("Contador2")
             AcomodaLabel("ContadorTotal")
         Catch ex As Exception
+            'se trata de hacer esto por que se sospecha sin conexion
+            Sensor1Estado = 0
+            Sensor2Estado = 0
+            Trace.WriteLine("final de error  552 " & ex.Message)
             MuestraMensaje("Error 552", 2)
         End Try
     End Sub
     Private Sub CrearBatch(idSensor As Integer, IdEquipo As Integer, NombreEquipo As String)
-
-
         'intentar ver si el json de batchs se encuentra bien
-
-
-
         Dim FechaInicioBatchLocal As New DateTime
         If IdEquipo = 1 Then
             FechaInicioBatchLocal = FechaInicioBatch1
@@ -903,21 +939,6 @@ Public Class FormPrincipal
             '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
 
         End If
-
-
-        'como obtener el conteo actual de cuantas piezas tiene sin  tener que preguntar en la base de datos
-
-
-        ''counBatchsDatatable.Columns.Add("id", GetType(Integer))
-        'counBatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
-        'counBatchsDatatable.Columns.Add("nombre_equipo", GetType(Integer))
-        'counBatchsDatatable.Columns.Add("fecha_inicio", GetType(DateTime))
-        'counBatchsDatatable.Columns.Add("fecha_termino", GetType(DateTime))
-
-
-
-
-
         'Insertar
         ' insertando normalmente en la tabla de 
         ' como respuesta registrandolo lo ultimo en le  json
@@ -1030,6 +1051,7 @@ Public Class FormPrincipal
     End Function
 
     Sub EnviaCaracterArduino(Caracter As String)
+        'Trace.WriteLine("we" & Caracter)
         If SerialPort1.IsOpen Then
             Try
                 SerialPort1.WriteTimeout = 3000
@@ -1184,11 +1206,18 @@ Public Class FormPrincipal
                         Paso1 = "z"
                 End Select
                 Trace.WriteLine(Paso1 & " es lo que envia")
+
                 EnviaCaracterArduino(Paso1)
-                Trace.WriteLine("paso1 enviado")
+                Trace.WriteLine("paso1 enviado ")
+                Thread.Sleep(300)
+                Trace.WriteLine("esperado 1 segundo")
                 Paso2 = FiltroLetraEntradaSalida(valor)
                 If Paso2 IsNot Nothing Then
                     EnviaCaracterArduino(Paso2)
+                    Trace.WriteLine("paso2 enviado ")
+                    Thread.Sleep(300)
+
+                    Trace.WriteLine("DORMIDO 1 SEG")
                     Paso3 = "0"
                     EnviaCaracterArduino(Paso3)
                     Trace.WriteLine("terminando con el ultimo paso completado")
@@ -1214,40 +1243,115 @@ Public Class FormPrincipal
     Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
         HiloSensores = New Thread(AddressOf ObtenerSensores)
         HiloSensores.Start()
-        'mientras tengan datos entonces que compare
-        If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
-            'cuando se levante la primera vez, como puedo saber si el pin dado existe,
-            'solamente cuando tenga conexion con la base de datos y la no se interrumpa
-            If EntradaSensor1 IsNot Nothing Then
-                'Trace.WriteLine("sensor 1 = " & EntradaSensor1)
-                If EntradaSensor1 <> Sensor1AltDatatable(0)(3) Then
-                    EntradaSensor1 = Sensor1AltDatatable(0)(3)
-                    'Trace.WriteLine("cambiandoSensor1 a " & EntradaSensor1)
-                    EnviarCambioPines(EntradaSensor1, 0)
-                End If
-            Else
-                EntradaSensor1 = Sensor1AltDatatable(0)(3)
-            End If
-            If EntradaSensor2 IsNot Nothing Then
-                'Trace.WriteLine("sensor 2 = " & EntradaSensor2)
-                If EntradaSensor2 <> Sensor2AltDatatable(0)(3) Then
-                    EntradaSensor2 = Sensor2AltDatatable(0)(3)
-                    'Trace.WriteLine("cambiandoSensor2 a " & EntradaSensor2)
-                    EnviarCambioPines(EntradaSensor2, 1)
-                End If
-            Else
-                EntradaSensor2 = Sensor2AltDatatable(0)(3)
-            End If
-        End If
+        TimerSensores.Stop() 'hasta que se cambien  o si detectan alguncambio que lo hacan y que no aga otro por detras
+        Dim resp As Boolean = False
+        Try
+            'mientras tengan datos entonces que compare
+            If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
+                'cuando se levante la primera vez, como puedo saber si el pin dado existe,
+                'solamente cuando tenga conexion con la base de datos y la no se interrumpa
 
-        If ConfiguracionesDatatable IsNot Nothing Then
-            'ImprimeDatatable(ConfiguracionesDatatable, "ewenas")
-            If SalidaSensor <> ConfiguracionesDatatable.Rows(0)(6) Then
-                SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
-                EnviarCambioPines(SalidaSensor, 2)
+                resp = verificacionAtrib(EntradaSensor1, Sensor1AltDatatable, 3)
+                If resp Then
+                    EnviarCambioPines(EntradaSensor1, 0)
+                    resp = False
+                End If
+                'If EntradaSensor1 IsNot Nothing Then
+                '    If EntradaSensor1 <> Sensor1AltDatatable(0)(3) Then
+                '        EntradaSensor1 = Sensor1AltDatatable(0)(3)
+                '    End If
+                'Else
+                '    EntradaSensor1 = Sensor1AltDatatable(0)(3)
+                'End If
+
+
+                resp = verificacionAtrib(EntradaSensor2, Sensor2AltDatatable, 3)
+                If resp Then
+                    EnviarCambioPines(EntradaSensor2, 1)
+                    resp = False
+                End If
+                'If EntradaSensor2 IsNot Nothing Then
+                '    If EntradaSensor2 <> Sensor2AltDatatable(0)(3) Then
+                '        EntradaSensor2 = Sensor2AltDatatable(0)(3)
+                '    End If
+                'Else
+                '    EntradaSensor2 = Sensor2AltDatatable(0)(3)
+                'End If
+
             End If
-        End If
+
+
+
+            If ConfiguracionesDatatable IsNot Nothing Then
+                Dim i = verificacionAtrib(SalidaSensor, ConfiguracionesDatatable, 6)
+                If i Then
+                    EnviarCambioPines(SalidaSensor, 2)
+                End If
+                'If SalidaSensor <> ConfiguracionesDatatable.Rows(0)(6) Then
+                '    SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
+                'End If
+
+            End If
+
+            If Equipo1Datatable IsNot Nothing And Equipo2Datatable IsNot Nothing Then
+
+                verificacionAtrib(NombreEquipo1, Equipo1Datatable, 1)
+                'If NombreEquipo1 IsNot Nothing Then
+                '    If NombreEquipo1 <> Equipo1Datatable.Rows(0)(1) Then
+                '        NombreEquipo1 = Equipo1Datatable.Rows(0)(1)
+                '    End If
+                'Else
+                '    NombreEquipo1 = Equipo1Datatable.Rows(0)(1)
+                'End If
+
+                verificacionAtrib(NombreEquipo2, Equipo2Datatable, 1)
+
+                'If NombreEquipo2 IsNot Nothing Then
+                '    If NombreEquipo2 <> Equipo2Datatable.Rows(0)(1) Then
+                '        NombreEquipo2 = Equipo2Datatable.Rows(0)(1)
+                '    End If
+                'Else
+                '    NombreEquipo2 = Equipo2Datatable.Rows(0)(1)
+                'End If
+
+                verificacionAtrib(LimiteBatch1, Equipo1Datatable, 2)
+                'If LimiteBatch1 = Nothing Then
+                '    If LimiteBatch1 <> Equipo1Datatable.Rows(0)(2) Then
+                '        LimiteBatch1 = Equipo1Datatable.Rows(0)(2)
+                '    End If
+                'Else
+                '    LimiteBatch1 = Equipo1Datatable.Rows(0)(2)
+                'End If
+                verificacionAtrib(LimiteBatch2, Equipo2Datatable, 2)
+                'If LimiteBatch2 = Nothing Then
+                '    If LimiteBatch2 <> Equipo2Datatable.Rows(0)(2) Then
+                '        LimiteBatch2 = Equipo2Datatable.Rows(0)(2)
+                '    End If
+                'Else
+                '    LimiteBatch2 = Equipo2Datatable.Rows(0)(2)
+                'End If
+
+            End If
+
+        Catch ex As Exception
+            Trace.WriteLine("Error la ingresar la wea" & ex.Message)
+        Finally
+            TimerSensores.Start()
+        End Try
     End Sub
+
+    Public Function verificacionAtrib(ByRef variable As Object, ByRef datatable As DataTable, posicionDatatable As Integer) As Boolean
+        Dim resp = False
+        If variable = Nothing Then
+            If variable <> datatable.Rows(0)(posicionDatatable) Then
+                variable = datatable.Rows(0)(posicionDatatable)
+                resp = True 'hubo un cambio
+            End If
+        Else
+            variable = datatable.Rows(0)(posicionDatatable)
+        End If
+        Return resp
+    End Function
 
     Public Sub ImprimeDatatable(dt As DataTable, nombre_tabla As String)
         Trace.WriteLine("Imprimiendo datatable '" & nombre_tabla & "'")
@@ -1277,10 +1381,12 @@ Public Class FormPrincipal
     End Sub
 
     'caracteresArduino
-
-
-    Public Sub ObtenerSensores()
-        Configuraciones.Id = 1 'siempre la primera
+    Public Sub ObtenerSensores() ' al final obtendra todo 
+        Equipos.id = IdEquipo1
+        Equipo1Datatable = Equipos.ListarById()
+        Equipos.id = IdEquipo2
+        Equipo2Datatable = Equipos.ListarById()
+        Configuraciones.Id = 1
         ConfiguracionesDatatable = Configuraciones.Listar()
         Sensores.Id = IdSensor1
         Sensor1AltDatatable = Sensores.ListarAlt
@@ -1289,13 +1395,13 @@ Public Class FormPrincipal
     End Sub
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-        EnviaCaracterArduino("j")
-        'Trace.WriteLine("caracter j enviado")
+        EnviaCaracterArduino("j") 'ESTADO PALETA = FALSE
+        Trace.WriteLine("caracter j enviado")
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
-        EnviaCaracterArduino("k")
-        'Trace.WriteLine("caracter k enviado")
+        EnviaCaracterArduino("k") 'ESTADO PALETA = TRUE
+        Trace.WriteLine("caracter k enviado")
     End Sub
 
 #End Region

@@ -47,6 +47,16 @@ ScanCounter
   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
 </summary>
 </member>
+<member name="P:ScanCounter.My.Resources.Resources.PaletaAbierta">
+<summary>
+  Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:ScanCounter.My.Resources.Resources.PaletaCerrada">
+<summary>
+  Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+</summary>
+</member>
 <member name="P:ScanCounter.My.Resources.Resources.red_dot">
 <summary>
   Busca un recurso adaptado de tipo System.Drawing.Bitmap.

@@ -89,6 +89,7 @@
     <Compile Include="lib\SecurityWrapper.vb" />
     <Compile Include="model\BatchModel.vb" />
     <Compile Include="model\ConfiguracionesModel.vb" />
+    <Compile Include="model\EquiposModel.vb" />
     <Compile Include="model\LecturasModel.vb" />
     <Compile Include="model\SensoresModel.vb" />
     <Compile Include="My Project\Resources.Designer.vb">
@@ -150,7 +151,9 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="Resources\PaletaAbierta.png" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="My Project\Imagenes\green.png" />
   </ItemGroup>
@@ -180,6 +183,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="My Project\Imagenes\fondo.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\PaletaCerrada.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>
