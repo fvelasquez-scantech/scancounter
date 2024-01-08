@@ -611,9 +611,10 @@ Public Class FormPrincipal
                 Select Case Sensores.Id
                     Case IdSensor1
 
+                        'ImprimeDatatable(Sensor1Datatable, "we")
                         'If Iniciando Then
                         Contador1(0) = Sensor1Datatable.Rows(0)(4)
-                            LblContador1.Text = Contador1(0)
+                        LblContador1.Text = Contador1(0)
                             'aqui
                             'If Sensor1Datatable.Rows(0)(4) <> ConteoBatch1 Then
                             '    ConteoBatch1 = Sensor1Datatable.Rows(0)(4)
@@ -633,6 +634,9 @@ Public Class FormPrincipal
                         Sensores.Id = IdSensor2
                         IniciaBackgroundworker("ListarSensor")
                     Case IdSensor2
+
+                        'ImprimeDatatable(Sensor2Datatable, "wenas")
+
                         'If Iniciando Then
 
                         'If Sensor2Datatable.Rows(0)(4) <> ConteoBatch2 Then
@@ -645,10 +649,11 @@ Public Class FormPrincipal
                             LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
                             LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
-                            Sensor2Estado = Sensor2Datatable.Rows(0)(SensorIdEstadoIndex)
-                            Contador2(0) = Sensor2Datatable.Rows(0)(4)
 
-                            PbxLoadingSensor2.Hide()
+                        Sensor2Estado = Sensor2Datatable.Rows(0)(SensorIdEstadoIndex)
+                        Contador2(0) = Sensor2Datatable.Rows(0)(4)
+
+                        PbxLoadingSensor2.Hide()
 
                             If Not TimerEstado Then
                             TimerEstado = True
@@ -699,7 +704,7 @@ Public Class FormPrincipal
                 Dim total As Integer
                 total = Contador1(0) + Contador2(0)
 
-                LblTotal.Text = "" & total & " Pzs"
+                LblTotal.Text = total
                 'If total >= LimiteBatch1 Then
                 '    EnviaCaracterArduino("k")
                 'Else
@@ -835,8 +840,8 @@ Public Class FormPrincipal
                         If TiempoLecturaTotal1 >= LecturaMinimaProducto And TiempoLecturaTotal1 <= LecturaMaximaProducto Then ' este formulario no existe
                             Select Case Sensor1Estado
                                 Case 1
+                                    Contador1(0) += 1
 
-                                    Trace.WriteLine("limites 1 = " & LimiteBatch1 & " == " & ConteoBatch1 & "")
                                     If conexionDb Then
                                         RutinaInsertar(IdSensor1, 1)
                                     Else
@@ -846,6 +851,10 @@ Public Class FormPrincipal
                                         row(2) = Now
                                         row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
+                                    End If
+                                    Trace.WriteLine("limites 1 = " & Contador1(0) + Contador2(0) & " == " & CInt(LblTotal.Text) & "")
+                                    If (Contador1(0) + Contador2(0)) >= LimiteBatch1 Then
+                                        CrearBatch(IdEquipo1, NombreEquipo1)
                                     End If
 
                             End Select
@@ -861,7 +870,7 @@ Public Class FormPrincipal
                         If TiempoLecturaTotal2 >= LecturaMinimaProducto And TiempoLecturaTotal2 <= LecturaMaximaProducto Then
                             Select Case Sensor2Estado
                                 Case 1
-                                    Trace.WriteLine("limites 2 = " & LimiteBatch2 & " == " & ConteoBatch2 & "")
+                                    Contador2(0) += 1
                                     If conexionDb Then
                                         RutinaInsertar(IdSensor2, 2)
                                     Else
@@ -869,13 +878,13 @@ Public Class FormPrincipal
                                         row(0) = registrosOffline.Rows.Count + 1
                                         row(1) = IdSensor2
                                         row(2) = Now
-                                        row(3) = IdEquipo2
+                                        row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
                                     End If
+                                    Trace.WriteLine("limites 1 = " & LimiteBatch1 & " == " & CInt(LblTotal.Text) & "")
+                                    If (Contador2(0) + Contador1(0)) >= LimiteBatch1 Then
+                                        CrearBatch(IdEquipo1, NombreEquipo1)
 
-                                    If ConteoBatch1 >= CInt(LblTotal.Text) Then
-                                        'CrearBatch()
-                                        'con
                                     End If
 
                             End Select
@@ -895,7 +904,7 @@ Public Class FormPrincipal
                         PbxEstadoPaleta.Image = My.Resources.PaletaCerrada
                 End Select
 
-                LblTotal.Text = $"{CInt(LblContador1.Text) + CInt(LblContador2.Text)} Pzs"
+                LblTotal.Text = CInt(LblContador1.Text) + CInt(LblContador2.Text)
             Else
                 MuestraMensaje("Error 332", 2)
 
@@ -913,7 +922,7 @@ Public Class FormPrincipal
             MuestraMensaje("Error 552", 2)
         End Try
     End Sub
-    Private Sub CrearBatch(idSensor As Integer, IdEquipo As Integer, NombreEquipo As String)
+    Private Sub CrearBatch(IdEquipo As Integer, NombreEquipo As String)
         'intentar ver si el json de batchs se encuentra bien
         Dim FechaInicioBatchLocal As New DateTime
         If IdEquipo = 1 Then
@@ -930,11 +939,21 @@ Public Class FormPrincipal
         Fechasegundos = Now.AddSeconds(1)
 
         If conexionDb Then
-            Batch.IdEquipo = idSensor
+            Batch.IdEquipo = IdEquipo
             Batch.FechaInicio = FechaInicioBatchLocal
-            Batch.NombreEquipo = NombreEquipo1
+            Batch.NombreEquipo = NombreEquipo
 
             Dim resp = Batch.InsertarBatch()
+            Trace.WriteLine("resp batch  = " & resp)
+            If resp = 1 Then
+                If EstadoPaleta Then
+                    EnviaCaracterArduino("j")
+                Else
+                    EnviaCaracterArduino("k")
+                End If
+            End If
+            Contador1(0) = 0
+            Contador2(0) = 0
             'Else
             '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
 
@@ -1253,8 +1272,11 @@ Public Class FormPrincipal
 
                 resp = verificacionAtrib(EntradaSensor1, Sensor1AltDatatable, 3)
                 If resp Then
+                    Trace.WriteLine("wenas")
                     EnviarCambioPines(EntradaSensor1, 0)
                     resp = False
+                    'Else
+                    '    Trace.WriteLine("no enviar")
                 End If
                 'If EntradaSensor1 IsNot Nothing Then
                 '    If EntradaSensor1 <> Sensor1AltDatatable(0)(3) Then
@@ -1267,8 +1289,11 @@ Public Class FormPrincipal
 
                 resp = verificacionAtrib(EntradaSensor2, Sensor2AltDatatable, 3)
                 If resp Then
+                    Trace.WriteLine("wenas2")
                     EnviarCambioPines(EntradaSensor2, 1)
                     resp = False
+                    'Else
+                    '    Trace.WriteLine("no enviar")
                 End If
                 'If EntradaSensor2 IsNot Nothing Then
                 '    If EntradaSensor2 <> Sensor2AltDatatable(0)(3) Then
@@ -1278,6 +1303,8 @@ Public Class FormPrincipal
                 '    EntradaSensor2 = Sensor2AltDatatable(0)(3)
                 'End If
 
+                'Trace.WriteLine("sensor 1 " & EntradaSensor1)
+                'Trace.WriteLine("sensor 2 " & EntradaSensor2)
             End If
 
 
@@ -1286,7 +1313,10 @@ Public Class FormPrincipal
                 Dim i = verificacionAtrib(SalidaSensor, ConfiguracionesDatatable, 6)
                 If i Then
                     EnviarCambioPines(SalidaSensor, 2)
+                    'Else
+                    '    Trace.WriteLine("no enviar")
                 End If
+                'Trace.WriteLine("salida 1 " & SalidaSensor)
                 'If SalidaSensor <> ConfiguracionesDatatable.Rows(0)(6) Then
                 '    SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
                 'End If
@@ -1331,6 +1361,10 @@ Public Class FormPrincipal
                 '    LimiteBatch2 = Equipo2Datatable.Rows(0)(2)
                 'End If
 
+                'Trace.WriteLine("Equipo 1 " & NombreEquipo1)
+                'Trace.WriteLine("Equipo 2 " & NombreEquipo2)
+                'Trace.WriteLine("LimiteBatch 1 " & LimiteBatch1)
+                'Trace.WriteLine("LimiteBatch 2 " & LimiteBatch2)
             End If
 
         Catch ex As Exception
@@ -1342,10 +1376,10 @@ Public Class FormPrincipal
 
     Public Function verificacionAtrib(ByRef variable As Object, ByRef datatable As DataTable, posicionDatatable As Integer) As Boolean
         Dim resp = False
-        If variable = Nothing Then
+        If variable IsNot Nothing Then
             If variable <> datatable.Rows(0)(posicionDatatable) Then
                 variable = datatable.Rows(0)(posicionDatatable)
-                resp = True 'hubo un cambio
+                resp = True
             End If
         Else
             variable = datatable.Rows(0)(posicionDatatable)
