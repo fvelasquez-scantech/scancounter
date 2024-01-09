@@ -196,29 +196,8 @@ Public Class FormPrincipal
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         'vista de letras
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_0"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_1"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_2"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_3"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_4"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_5"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_6"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_7"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_8"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_9"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_0"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_1"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_2"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_3"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_4"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_5"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_6"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_7"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_8"))
-        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_9"))
-
-
-
+        Button1.Visible = False
+        Button2.Visible = False
         'constuyendo la tabla batch
         BatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
         BatchsDatatable.Columns.Add("nombre_equipo", GetType(Integer))
@@ -398,12 +377,14 @@ Public Class FormPrincipal
             PanelLoadingS1.BackColor = Gray
             PanelLoadingS2.BackColor = LightSlateGray
             Panel4.BackColor = CadetBlue
+            Panel6.BackColor = CadetBlue
             PbxNetworkStatus.Show()
         Else
             PbxNetworkStatus.Hide()
             PanelLoadingS1.BackColor = Navy
             PanelLoadingS2.BackColor = SlateBlue
             Panel4.BackColor = MidnightBlue
+            Panel6.BackColor = MidnightBlue
         End If
 
         'Trace.WriteLine("ping " & conexionDb & " contador " & contadorLecturasSinBd)
@@ -738,7 +719,6 @@ Public Class FormPrincipal
 
             Case "Error1"
                 MuestraMensaje("Error 220", 2)
-                'Console.WriteLine("Error listando sensor 1")
             Case "Error2"
                 MuestraMensaje("Error 223", 2)
                 'Console.WriteLine("Error listando sensor 2")
@@ -747,7 +727,6 @@ Public Class FormPrincipal
 
                 '    Close()
         End Select
-        'Trace.WriteLine("terminar de listar")
 
     End Sub
 #End Region
@@ -874,6 +853,7 @@ Public Class FormPrincipal
                                         row(2) = Now
                                         row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
+                                        LblContador1.Text = Contador1(0)
                                     End If
                                     Trace.WriteLine("limites 1 = " & Contador1(0) + Contador2(0) & " == " & CInt(LblTotal.Text) & "")
                                     If (Contador1(0) + Contador2(0)) >= LimiteBatch1 Then
@@ -903,11 +883,11 @@ Public Class FormPrincipal
                                         row(2) = Now
                                         row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
+                                        LblContador2.Text = Contador2(0)
                                     End If
                                     Trace.WriteLine("limites 1 = " & LimiteBatch1 & " == " & CInt(LblTotal.Text) & "")
                                     If (Contador2(0) + Contador1(0)) >= LimiteBatch1 Then
                                         CrearBatch(IdEquipo1, NombreEquipo1)
-
                                     End If
 
                             End Select
@@ -932,11 +912,11 @@ Public Class FormPrincipal
                 MuestraMensaje("Error 332", 2)
 
             End If
-
+            'Trace.WriteLine("wenas")
             'Mueve texto del contador para centrarlo
             AcomodaLabel("Contador1")
             AcomodaLabel("Contador2")
-            AcomodaLabel("ContadorTotal")
+            AcomodaLabel("Total")
         Catch ex As Exception
             'se trata de hacer esto por que se sospecha sin conexion
             Sensor1Estado = 0
@@ -1006,43 +986,45 @@ Public Class FormPrincipal
     Sub AcomodaLabel(Cual As String)
         Select Case Cual
             Case "Contador1"
+                'Trace.WriteLine("cambiando")
                 Select Case LblContador1.Text.Length
                     Case 1 ' < 10
-                        LblContador1.Location = New Point(340, 220)
+                        LblContador1.Location = New Point(370, 220)
                     Case 2 ' >= 10 < 100
-                        LblContador1.Location = New Point(250, 220)
+                        LblContador1.Location = New Point(330, 220)
                     Case 3 ' >= 100 < 1000
-                        LblContador1.Location = New Point(180, 220)
+                        LblContador1.Location = New Point(290, 220)
                     Case 4 ' >= 1000 < 10000
-                        LblContador1.Location = New Point(110, 220)
+                        LblContador1.Location = New Point(250, 220)
                     Case 5 ' >= 10000 < 100000
-                        LblContador1.Location = New Point(40, 220)
+                        LblContador1.Location = New Point(210, 220)
                 End Select
             Case "Contador2"
                 Select Case LblContador2.Text.Length
                     Case 1 ' < 10
-                        LblContador2.Location = New Point(380, 220)
+                        LblContador2.Location = New Point(420, 220)
                     Case 2 ' >= 10 < 100
-                        LblContador2.Location = New Point(290, 220)
+                        LblContador2.Location = New Point(380, 220)
                     Case 3 ' >= 100 < 1000
-                        LblContador2.Location = New Point(220, 220)
+                        LblContador2.Location = New Point(340, 220)
                     Case 4 ' >= 1000 < 10000
-                        LblContador2.Location = New Point(140, 220)
+                        LblContador2.Location = New Point(300, 220)
                     Case 5 ' >= 10000 < 100000
-                        LblContador2.Location = New Point(70, 220)
+                        LblContador2.Location = New Point(260, 220)
                 End Select
             Case "Total"
+                'Trace.WriteLine("reacomodando label text")
                 Select Case LblTotal.Text.Length
-                    Case 1, 2 ' < 100 Pzs
-                        LblTotal.Location = New Point(805, 80)
-                    Case 3 ' >= 100 < 1000 Pzs
-                        LblTotal.Location = New Point(780, 80)
-                    Case 4 ' >= 1000 < 10000 Pzs
-                        LblTotal.Location = New Point(720, 80)
-                    Case 5 ' >= 10000 < 100000 Pzs
-                        LblTotal.Location = New Point(690, 80)
-                    Case 6 ' >= 100000 < 1000000 Pzs
-                        LblTotal.Location = New Point(640, 80)
+                    Case 1 ' < 100 Pzs
+                        LblTotal.Location = New Point(880, 107)
+                    Case 2 ' >= 100 < 1000 Pzs
+                        LblTotal.Location = New Point(780, 107)
+                    Case 3 ' >= 1000 < 10000 Pzs
+                        LblTotal.Location = New Point(680, 107)
+                    Case 4 ' >= 10000 < 100000 Pzs
+                        LblTotal.Location = New Point(580, 107)
+                    Case 5 ' >= 100000 < 1000000 Pzs
+                        LblTotal.Location = New Point(480, 107)
                 End Select
         End Select
     End Sub
@@ -1497,6 +1479,10 @@ Public Class FormPrincipal
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         EnviaCaracterArduino("k") 'ESTADO PALETA = TRUE
         Trace.WriteLine("caracter k enviado")
+    End Sub
+
+    Private Sub Label1_Click(sender As Object, e As EventArgs) Handles Label1.Click
+
     End Sub
 
 #End Region
