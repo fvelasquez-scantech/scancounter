@@ -195,6 +195,29 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        'vista de letras
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_0"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_1"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_2"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_3"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_4"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_5"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_6"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_7"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_8"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("I0_9"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_0"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_1"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_2"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_3"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_4"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_5"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_6"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_7"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_8"))
+        'Trace.WriteLine(FiltroLetraEntradaSalida("Q0_9"))
+
+
 
         'constuyendo la tabla batch
         BatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
@@ -1175,10 +1198,48 @@ Public Class FormPrincipal
     End Sub
 
     Public Function FiltroLetraEntradaSalida(Valor As String) As Char
+        'hay que  hacer que este filtro para el ardbox
+        'inicio spartan 21
         'patronar regex con lo envviado
+        'Dim Caracter As Char
+        'Try
+        '    Dim regexIO As New Regex("^(([IQ])[0-1]_(1[0-2]|[0-9]))$")
+        '    If regexIO.IsMatch(Valor) Then
+        '        Dim ValorFinal As Integer = 0
+        '        Dim Largo = 2
+        '        'constantes
+        '        Dim BaseIs As Integer = 65
+        '        Dim BaseQs As Integer = BaseIs + 13
+        '        If Valor.Length <= 4 Then
+        '            Largo -= 1
+        '        End If
+
+        '        ValorFinal = CInt(Valor.Substring(3, Largo))
+        '        If Valor.Contains("Q") Then
+        '            ValorFinal += BaseQs
+        '        ElseIf Valor.Contains("I") Then
+        '            ValorFinal += BaseIs
+        '        End If
+
+        '        If ValorFinal >= 65 And ValorFinal <= 85 Then
+        '            Caracter = ChrW(ValorFinal)
+        '            Trace.WriteLine("caracter obtenido por filtro  = " & Caracter)
+        '        Else
+        '            Caracter = Nothing
+        '        End If
+        '    Else
+        '        Caracter = Nothing
+        '    End If
+        'Catch ex As Exception
+        '    Trace.WriteLine("error en la asignacion de variable normal" & ex.Message)
+        '    Caracter = Nothing
+        'End Try
+        'Return Caracter
+        'spartan  21
+        'ardbox  inicio
         Dim Caracter As Char
         Try
-            Dim regexIO As New Regex("^(([IQ])[0-1]_(1[0-2]|[0-9]))$")
+            Dim regexIO As New Regex("^(([IQ])[0-1]_([0-9]))$")
             If regexIO.IsMatch(Valor) Then
                 Dim ValorFinal As Integer = 0
                 Dim Largo = 2
@@ -1195,7 +1256,6 @@ Public Class FormPrincipal
                 ElseIf Valor.Contains("I") Then
                     ValorFinal += BaseIs
                 End If
-
                 If ValorFinal >= 65 And ValorFinal <= 85 Then
                     Caracter = ChrW(ValorFinal)
                     Trace.WriteLine("caracter obtenido por filtro  = " & Caracter)
@@ -1210,6 +1270,7 @@ Public Class FormPrincipal
             Caracter = Nothing
         End Try
         Return Caracter
+        'ardbox fin
     End Function
 
     Public Sub EnviarCambioPines(valor As String, posicion As Integer)
