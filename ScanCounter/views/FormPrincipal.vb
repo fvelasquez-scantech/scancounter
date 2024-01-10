@@ -55,6 +55,7 @@ Public Class FormPrincipal
     Private EstadoPaleta As Boolean
 
     Private registrosOffline As New DataTable
+    Private BatchOffline As New DataTable
     Private ConfiguracionesDatatable As DataTable
     Private SensorOfflineRegDataTable As DataTable
 
@@ -105,7 +106,6 @@ Public Class FormPrincipal
     Private fs As FileStream
     Private sw As StreamWriter
 
-
     Private HiloSensores As Thread
 
     Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
@@ -132,8 +132,6 @@ Public Class FormPrincipal
     Private fsErrores As FileStream
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
-
-
 
 
 #Region "Constructor"
@@ -236,6 +234,12 @@ Public Class FormPrincipal
         registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
         registrosOffline.Columns.Add("idEquipo", GetType(Integer))
 
+        BatchOffline.Columns.Add("id", GetType(Integer))
+        BatchOffline.Columns.Add("nombre_equipo", GetType(String))
+        BatchOffline.Columns.Add("id_equipo", GetType(Integer))
+        BatchOffline.Columns.Add("fecha_inicio", GetType(DateTime))
+        BatchOffline.Columns.Add("fecha_termino", GetType(DateTime))
+
         bgwHelper.WorkerSupportsCancellation = True
 
         IniciaBackgroundworker("ValidaLicencia")
@@ -332,6 +336,7 @@ Public Class FormPrincipal
             TimerOffline.Stop()
         End If
         If conexionDb Then
+            'sensores
             If registrosOffline.Rows.Count > 0 Then
                 Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
 
@@ -341,9 +346,20 @@ Public Class FormPrincipal
                     TimerOffline.Start()
                 End If
             End If
+
+            'batchs
+
+            Dim batchOfflineJson As DataTable
+
+
+
+
+
         Else
             TimerOffline.Start()
         End If
+
+
     End Sub
 
     Private Async Sub TimerRed_tick(sender As Object, e As EventArgs)
@@ -947,19 +963,20 @@ Public Class FormPrincipal
             Batch.NombreEquipo = NombreEquipo
 
             Dim resp = Batch.InsertarBatch()
-            Trace.WriteLine("resp batch  = " & resp)
+            'Trace.WriteLine("resp batch  = " & resp)
             If resp = 1 Then
-                If EstadoPaleta Then
-                    EnviaCaracterArduino("j")
-                Else
-                    EnviaCaracterArduino("k")
-                End If
+                Contador1(0) = 0
+                Contador2(0) = 0
+                'Else
+                '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
             End If
-            Contador1(0) = 0
-            Contador2(0) = 0
-            'Else
-            '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
+        Else
 
+        End If
+        If EstadoPaleta Then
+            EnviaCaracterArduino("j")
+        Else
+            EnviaCaracterArduino("k")
         End If
         'Insertar
         ' insertando normalmente en la tabla de 
