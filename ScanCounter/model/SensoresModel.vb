@@ -18,7 +18,6 @@ Public Class SensoresModel
 
         Try
             connection.ConnectionString = Configuration.ConnectionString
-
             command = New SqlCommand("Sensores_Listar") With {
                 .CommandType = CommandType.StoredProcedure,
                 .Connection = connection

@@ -19,11 +19,13 @@ Imports Newtonsoft.Json
 Imports System.Text
 Imports System.Web.UI
 Imports System.Runtime.InteropServices.ComTypes
+Imports System.Runtime.CompilerServices
+Imports System.Web.UI.WebControls
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
     Private bgOpcion As String = ""
-    Private bgwHelperResultado As Integer
+    Private bgwHelperResultado As Integer = 0
 
     'Variables de ayuda para timer
     Private timerOpcion As String = ""
@@ -39,41 +41,37 @@ Public Class FormPrincipal
     'Datatables
     Private bgResultado As DataTable
     'estos sensores Tienen el inicio con chos datos por que se carga directamente 
-    Private Sensor1Datatable As DataTable
-    Private Sensor2Datatable As DataTable
     'se utilizara la carga a travez de  hilos  para poder cargar mas rapido y actualizarlo durante la consulta nueva
     'se añadira un timer para ver cuando actualize los sensores y envie datos al arudino
 
 
-    Private Equipo1Datatable As DataTable
-    Private Equipo2Datatable As DataTable
-
-    Private Sensor1AltDatatable As DataTable
-    Private Sensor2AltDatatable As DataTable
+    Private BatchOffline As DataTable
+    Private registrosOffline As DataTable
+    Private Sensor1Datatable As New DataTable
+    Private Sensor2Datatable As New DataTable
+    Private Equipo1Datatable As New DataTable
+    Private Equipo2Datatable As New DataTable
+    Private Sensor1AltDatatable As New DataTable
+    Private Sensor2AltDatatable As New DataTable
+    Private ConfiguracionesDatatable As New DataTable
     'Private TimerComprobarEntradas As timer
 
+    Private EstadoFormActivacion As Boolean = False
     Private EstadoPaleta As Boolean
-
-    Private registrosOffline As New DataTable
-    Private BatchOffline As New DataTable
-    Private ConfiguracionesDatatable As DataTable
-    Private SensorOfflineRegDataTable As DataTable
-
-
-    Private BatchsDatatable As New DataTable
-
-
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
     Private DelegadoArduino As New myMethodDelegate(AddressOf DataArduino)
     Private DelegadoMensajes As New myMethodDelegate(AddressOf MuestraPanel)
 
+    Private logErrores As String = "C:\Scantech\log_counter.text"
     Private PathBatch As String = "C:\Scantech\batch.json"
+    Private PathLecturas As String = "C:\Scantech\lecturas.json"
 
     'Variables globales
     Private conexionDb As Boolean = False
-
     Private contadorLecturasSinBd As Integer = 0
+
+    Private UltimaFechaInicioBatch As Date
 
     'sensores
     Private IdSensor1 As Byte = 5
@@ -103,12 +101,15 @@ Public Class FormPrincipal
     Private FechaInicioBatch2 As DateTime
     Private FechaBatch As DateTime
 
-    Private fs As FileStream
-    Private sw As StreamWriter
+    Private FsErrores As FileStream
+    Private FsBatch As FileStream
+    Private FsLecturas As FileStream
+
+
 
     Private HiloSensores As Thread
-
-    Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
+    Private COM As String = "COM16" ' DEBUGT OFFLINE
+    'Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
     ' se transformaron  en arreglos ya que necesito que los contadores representen su estado offline el cual sera contadorx(1)
     Private Contador1 As Integer() = {0, 0} 'cuenta sensor 1 (identificador A desde arduino)
@@ -128,8 +129,7 @@ Public Class FormPrincipal
     Private LecturaMinimaProducto As Integer = 500 'valores predeterminados minimos
     Private LecturaMaximaProducto As Integer = 3000 'valor predeterminado maximo 
     Private ProductoValidado As Boolean = False
-    Private logErrores As String = "C:\Scantech\log_counter.text"
-    Private fsErrores As FileStream
+
     Private MaximoAlcanzado1 As Boolean = False
     Private MaximoAlcanzado2 As Boolean = False
 
@@ -140,6 +140,8 @@ Public Class FormPrincipal
         AddHandler Application.ThreadException, AddressOf Application_ThreadException
         AddHandler AppDomain.CurrentDomain.UnhandledException, AddressOf CurrentDomain_UnhandledException
 
+        registrosOffline = New DataTable
+        BatchOffline = New DataTable
 
         ' Esta llamada es exigida por el diseñador.
         InitializeComponent()
@@ -153,6 +155,7 @@ Public Class FormPrincipal
         Equipos = New EquiposModel
 
         'AddHandler TimerSensores.Tick, AddressOf sensore
+        AddHandler TimerJson.Tick, AddressOf TimerJson_Tick
         AddHandler TimerOffline.Tick, AddressOf TimerOffline_Tick
         AddHandler TimerRed.Tick, AddressOf TimerRed_tick ' unico tick constante, el resto se llama por eventos
     End Sub
@@ -193,27 +196,145 @@ Public Class FormPrincipal
 
 #Region "Load"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        getPrevInstance()
         'vista de letras
         Button1.Visible = False
         Button2.Visible = False
         'constuyendo la tabla batch
-        BatchsDatatable.Columns.Add("id_equipo", GetType(Integer))
-        BatchsDatatable.Columns.Add("nombre_equipo", GetType(Integer))
-        BatchsDatatable.Columns.Add("fecha_inicio", GetType(DateTime))
-        BatchsDatatable.Columns.Add("fecha_termino", GetType(DateTime))
+
+        ConfiguracionesDatatable.Columns.Add("id", GetType(Integer))
+        ConfiguracionesDatatable.Columns.Add("puerto", GetType(String))
+        ConfiguracionesDatatable.Columns.Add("actualizacion_disponible", GetType(Integer))
+        ConfiguracionesDatatable.Columns.Add("deploy_actualizacion", GetType(Integer))
+        ConfiguracionesDatatable.Columns.Add("lectura_minima_producto", GetType(Integer))
+        ConfiguracionesDatatable.Columns.Add("lectura_maxima_producto", GetType(Integer))
+        ConfiguracionesDatatable.Columns.Add("salida_plc", GetType(String))
+        ConfiguracionesDatatable.Columns.Add("TiempoEspera", GetType(Integer))
+        'ConfiguracionesDatatable.Rows.Add(1, "COM3", 0, 0, 40, 1000, "Q0_0", 20000)
+        ConfiguracionesDatatable.Rows.Add(1, "COM16", 0, 0, 40, 1000, "Q0_0", 20000) ' DEBUG OFFLINE
+
+        Equipo1Datatable.Columns.Add("Id", GetType(Integer))
+        Equipo1Datatable.Columns.Add("Nombre", GetType(String))
+        Equipo1Datatable.Columns.Add("Conteo", GetType(Integer))
+        Equipo1Datatable.Columns.Add("Estado", GetType(String))
+
+        Equipo1Datatable.Rows.Add(1, "Offline", 10, "Esperando") ' debug 10 lecturas solamente
+        'Equipo1Datatable.Rows.Add(1, "Offline", 3500, "Esperando") 'nomal
+        ' definicion normal de cuantas piezas aguanta un camion
+
+        Equipo2Datatable.Columns.Add("Id", GetType(Integer))
+        Equipo2Datatable.Columns.Add("Nombre", GetType(String))
+        Equipo2Datatable.Columns.Add("Conteo", GetType(Integer))
+        Equipo2Datatable.Columns.Add("Estado", GetType(String))
+        Equipo2Datatable.Rows.Add(2, "Offline", 3500, "Esperando")
+
+
+        registrosOffline.Columns.Add("id", GetType(Integer))
+        registrosOffline.Columns.Add("idSensor", GetType(Integer))
+        registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
+        registrosOffline.Columns.Add("idEquipo", GetType(Integer))
+
+        registrosOffline.Rows.Add(1, 1, Now, 1)
+
+
+        BatchOffline.Columns.Add("id", GetType(Integer))
+        BatchOffline.Columns.Add("id_equipo", GetType(Integer))
+        BatchOffline.Columns.Add("nombre_equipo", GetType(String))
+        BatchOffline.Columns.Add("fecha_inicio", GetType(DateTime))
+        BatchOffline.Columns.Add("fecha_termino", GetType(DateTime))
+
+
+
+        Sensor1AltDatatable.Columns.Add("Id", GetType(Integer))
+        Sensor1AltDatatable.Columns.Add("Nombre", GetType(String))
+        Sensor1AltDatatable.Columns.Add("Estado", GetType(String))
+        Sensor1AltDatatable.Columns.Add("Plc", GetType(String))
+
+        Sensor1AltDatatable.Rows.Add(1, "Grader 1", "Iniciado", "I0_4") ' inductores
+
+        Sensor2AltDatatable.Columns.Add("Id", GetType(Integer))
+        Sensor2AltDatatable.Columns.Add("Nombre", GetType(String))
+        Sensor2AltDatatable.Columns.Add("Estado", GetType(String))
+        Sensor2AltDatatable.Columns.Add("Plc", GetType(String))
+
+        Sensor2AltDatatable.Rows.Add(2, "Grader 2", "Iniciado", "I0_5") ' inductores
+
+        'ya definido los batch offline  podemos ver cual es la ultima fecha para que la cuenta pueda ser arreglada
+
+        Sensor1Datatable.Columns.Add("IdSensor", GetType(Integer))
+        Sensor1Datatable.Columns.Add("NombreSensor", GetType(String))
+        Sensor1Datatable.Columns.Add("IdEstado", GetType(Integer))
+        Sensor1Datatable.Columns.Add("NombreEstado", GetType(String))
+        Sensor1Datatable.Columns.Add("lecturas", GetType(Integer))
+        Sensor1Datatable.Columns.Add("Plc", GetType(String))
+        'offline siempre se deja habilitado para poder iniciar la cuenta si no se ha validado
+        Sensor1Datatable.Rows.Add(1, "Grader 1", 1, "Iniciado", 0, "I0_4")
+
+        Sensor2Datatable.Columns.Add("IdSensor", GetType(Integer))
+        Sensor2Datatable.Columns.Add("NombreSensor", GetType(String))
+        Sensor2Datatable.Columns.Add("IdEstado", GetType(Integer))
+        Sensor2Datatable.Columns.Add("NombreEstado", GetType(String))
+        Sensor2Datatable.Columns.Add("lecturas", GetType(Integer))
+        Sensor2Datatable.Columns.Add("Plc", GetType(String))
+
+        Sensor2Datatable.Rows.Add(2, "Grader 2", 1, "Iniciado", 0, "I0_5")
+
+        '<---------------------------archivos------------------->
+        'los json se utilizaran netamente cuando se apague y se enciaendda, existe un riesgo cuando
+        ' se ingresen mucho las lecturas en el dedillo de las lecturas, por eso
+        ' el json se actualizara cada  10 minutos que es el tiempo medio por el cual se necesita 
+        'para que vuelva la conexion requerida en planta, si no lo hace podria estar asi indefinidamente 
+        ' siempre validando cada 10 mintuos
 
         If Not IO.File.Exists(PathBatch) Then
-            fs = IO.File.Create(PathBatch)
+            FsBatch = IO.File.Create(PathBatch)
         Else
-            fs = IO.File.Open(PathBatch, FileMode.Open)
+            FsBatch = IO.File.Open(PathBatch, FileMode.Open)
         End If
 
-        'fs ya seteado para escribir
-        getPrevInstance()
-        If Not IO.File.Exists(logErrores) Then
-            fsErrores = IO.File.Create(logErrores)
-            fsErrores.Close()
+        Dim dtba = ReadJson(FsBatch)
+        If dtba IsNot Nothing Then
+            BatchOffline = dtba
+            Trace.WriteLine("wenas")
+            'ImprimeDatatable(BatchOffline, "wenas")
+            UltimaFechaInicioBatch = BatchOffline.AsEnumerable().Max(Function(row) row.Field(Of DateTime)("fecha_inicio"))
+        Else
+            'BatchOffline.Columns.Add("id", GetType(Integer))
+            'BatchOffline.Columns.Add("id_equipo", GetType(Integer))
+            'BatchOffline.Columns.Add("nombre_equipo", GetType(String))
+            'BatchOffline.Columns.Add("fecha_inicio", GetType(DateTime))
+            'BatchOffline.Columns.Add("fecha_termino", GetType(DateTime))
+            BatchOffline.Rows.Add(1, 1, "Camion 1", Now, DBNull.Value)
+
+            'Trace.WriteLine("1" & UltimaFechaInicioBatch)
+            UltimaFechaInicioBatch = Now
+            'Trace.WriteLine("2" & UltimaFechaInicioBatch)
         End If
+
+
+        'aqui setear el el datatable en proceso para continuar
+
+        If Not IO.File.Exists(PathLecturas) Then
+            FsLecturas = IO.File.Create(PathLecturas)
+        Else
+            FsLecturas = IO.File.Open(PathLecturas, FileMode.Open)
+        End If
+
+        Dim dtreg = ReadJson(FsLecturas)
+        If dtreg IsNot Nothing Then
+
+            registrosOffline = dtreg
+        End If
+        'aqui continaur con las lecutas y asignar el coneo segun lo obtenido offline
+
+
+
+
+        If Not IO.File.Exists(logErrores) Then
+            FsErrores = IO.File.Create(logErrores)
+            FsErrores.Close()
+        End If
+
 
         TimerSensores.Start()
         TimerUpdater.Start()
@@ -229,22 +350,11 @@ Public Class FormPrincipal
 
         PbxLoading3.BringToFront()
 
-        registrosOffline.Columns.Add("id", GetType(Integer))
-        registrosOffline.Columns.Add("idSensor", GetType(Integer))
-        registrosOffline.Columns.Add("fecha_insercion", GetType(DateTime))
-        registrosOffline.Columns.Add("idEquipo", GetType(Integer))
-
-        BatchOffline.Columns.Add("id", GetType(Integer))
-        BatchOffline.Columns.Add("nombre_equipo", GetType(String))
-        BatchOffline.Columns.Add("id_equipo", GetType(Integer))
-        BatchOffline.Columns.Add("fecha_inicio", GetType(DateTime))
-        BatchOffline.Columns.Add("fecha_termino", GetType(DateTime))
-
         bgwHelper.WorkerSupportsCancellation = True
 
         IniciaBackgroundworker("ValidaLicencia")
     End Sub
-    Public Function ReadJson() As DataTable
+    Public Function ReadJson(fs As FileStream) As DataTable
         Dim json As String
         Using reader As New StreamReader(fs)
             json = reader.ReadToEnd()
@@ -260,15 +370,22 @@ Public Class FormPrincipal
         End If
         Return dt
     End Function
-    Public Sub WriteJson(dt As DataTable)
+    Public Sub WriteJson(dt As DataTable, path As String)
         Try
-            Dim JSONString As String = JsonConvert.SerializeObject(dt, Xml.Formatting.Indented)
-            Using writer As New StreamWriter(fs)
+            Dim JSONString As String = JsonConvert.SerializeObject(dt, Newtonsoft.Json.Formatting.Indented)
+            Trace.WriteLine("json = " & JSONString)
+            Dim fsll = IO.File.Open(path, FileMode.Open)
+            Using writer As New StreamWriter(fsll)
+                Trace.WriteLine("1")
                 writer.WriteLine(JSONString)
+                Trace.WriteLine("2")
             End Using
+            fsll.Close()
+            Trace.WriteLine("asimismo")
         Catch exio As IOException
             MuestraMensaje("Error 532", 0)
         Catch ex As Exception
+            Trace.WriteLine("escribir = " & ex.Message)
             MuestraMensaje("Error 522", 0)
         End Try
     End Sub
@@ -295,9 +412,7 @@ Public Class FormPrincipal
 
         If conexionDb Then
             Configuraciones.Id = 2
-
             ConfiguracionesDatatable = Configuraciones.Listar
-
             If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
 
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
@@ -327,38 +442,46 @@ Public Class FormPrincipal
                 bgResultado.Rows.Add("Error1")
             End If
         Else
-            bgResultado.Rows.Add("Error2")
+            bgResultado.Rows.Add("Ok")
+            'se remplaza ya que no importa si no tiene conexion deberia contar al inicio
+            'bgResultado.Rows.Add("Error2")
         End If
     End Sub
+
+
 
     Private Sub TimerOffline_Tick(sender As Object, e As EventArgs)
         If TimerOffline.Enabled = True Then
             TimerOffline.Stop()
         End If
+
         If conexionDb Then
             'sensores
-            If registrosOffline.Rows.Count > 0 Then
-                Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
-
-                If resp = 1 Then
-                    registrosOffline.Clear()
-                Else
-                    TimerOffline.Start()
+            If registrosOffline IsNot Nothing Then
+                If registrosOffline.Rows.Count > 0 Then
+                    Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
+                    If resp = 1 Then
+                        registrosOffline.Clear()
+                    Else
+                    End If
                 End If
             End If
 
-            'batchs
+            If BatchOffline IsNot Nothing Then
+                If BatchOffline.Rows.Count > 0 Then
+                    Dim resp As Integer = Batch.InsertarBatchOffline(BatchOffline)
+                    If resp = 1 Then
+                        BatchOffline.Clear()
+                    Else
+                        TimerOffline.Start()
+                    End If
+                End If
 
-            Dim batchOfflineJson As DataTable
-
-
-
-
-
-        Else
-            TimerOffline.Start()
+            End If
+            'batchs es para que cuando se genere los batch solo tengan lo necesario y si se
         End If
 
+        TimerOffline.Start()
 
     End Sub
 
@@ -368,9 +491,11 @@ Public Class FormPrincipal
             Dim pings = New System.Net.NetworkInformation.Ping()
             Dim reply = Await pings.SendPingAsync(Configuration.Server, 100)
             If reply.Status = System.Net.NetworkInformation.IPStatus.Success Then
+                'Trace.WriteLine("hay red")
                 conexionDb = True
                 contadorLecturasSinBd = 0
             Else
+                'Trace.WriteLine("no hay  red")
                 conexionDb = False
                 If contadorLecturasSinBd < 6 Then
                     contadorLecturasSinBd += 1
@@ -505,55 +630,72 @@ Public Class FormPrincipal
 #Region "Valida licencia"
     Sub RutinaValidaLicencia()
         'bgwHelperResultado = 1
-
         If Not IO.File.Exists(Configuration.SourcePath) Then
             bgwHelperResultado = 2
         Else
             Dim XmlDoc As XmlDocument = New XmlDocument()
             XmlDoc.Load(Configuration.SavePath)
-            If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
-                IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
-                'Console.WriteLine($"IdProducto {IdProducto}")
+            If conexionDb Then
+                If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
+                    IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
+                    'Console.WriteLine($"IdProducto {IdProducto}")
 
-                ' Lee licencia segun el id del producto
-                Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
+                    ' Lee licencia segun el id del producto
+                    Dim client As New RestClient($"https://scantech.cl/api/licencias/read_by_id_producto.php?id_producto={IdProducto}")
 
-                Dim request = New RestRequest(Method.GET)
-                Dim response As IRestResponse = client.Execute(request)
-                Dim content As String = response.Content
+                    Dim request = New RestRequest(Method.GET)
+                    Dim response As IRestResponse = client.Execute(request)
+                    Dim content As String = response.Content
 
-                If response.StatusCode = HttpStatusCode.OK Then
-                    Dim json As JObject = JObject.Parse(content)
+                    If response.StatusCode = HttpStatusCode.OK Then
+                        Dim json As JObject = JObject.Parse(content)
 
-                    '¿Licencia está activa? (key_estado ACT || DIS)
-                    'Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
-                    'Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
+                        '¿Licencia está activa? (key_estado ACT || DIS)
+                        'Console.WriteLine($"Licencia N°: {json.SelectToken("Licencia.id_licencia")}")
+                        'Console.WriteLine($"Estado: {json.SelectToken("Licencia.key_estado")}")
 
-                    Dim result As String = json.SelectToken("Licencia.key_estado").ToString
-                    Select Case result
+                        Dim result As String = json.SelectToken("Licencia.key_estado").ToString
+                        Select Case result
                     'Case "DIS"
                     '    bgwHelperResultado = 2
-                        Case "DES"
-                            ProductoValidado = False
-                            bgwHelperResultado = 3
-                        Case "ACT", "DIS"
-                            'Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
-                            Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
-                                Case "PRO"
-                                    bgwHelperResultado = 1
-                                Case "STANDAR"
-                                    Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
+                            Case "DES"
+                                ProductoValidado = False
+                                bgwHelperResultado = 3
+                            Case "ACT", "DIS"
+                                'Console.WriteLine($"{json.SelectToken("Licencia.validez")}")
+                                Select Case json.SelectToken("Licencia.validez").ToString.ToUpper
+                                    Case "PRO"
+                                        bgwHelperResultado = 1
+                                    Case "STANDAR"
+                                        Dim fechaActivacion As Date = json.SelectToken("Licencia.fecha_activacion")
 
-                                    Dim desface As Long = DateDiff("d", fechaActivacion, Now)
+                                        Dim desface As Long = DateDiff("d", fechaActivacion, Now)
 
-                                    If desface >= 7 Then
-                                        bgwHelperResultado = 4
-                                    End If
-                            End Select
-                    End Select
+                                        If desface >= 7 Then
+                                            bgwHelperResultado = 4
+                                        End If
+                                End Select
+                        End Select
+                    End If
+                Else
+                    bgwHelperResultado = 2
                 End If
             Else
-                bgwHelperResultado = 2
+                If XmlDoc.DocumentElement("encrypted_key").InnerText <> "" Then
+                    IdProducto = Wrapper.DecryptData(XmlDoc.DocumentElement("encrypted_key").InnerText)
+                    Trace.WriteLine("wenas el  id producto es el siguiente" & IdProducto)
+                    Dim regexCodCounter As New Regex("^SCANCOUNTER-[0-9]{1,3}$") ' ardbox 20
+                    'si el producto cumple con el patron regex una vez desencriptado entonces
+                    'puede continuar en offline ya que se supone que anterior mente paso
+                    'por la etapa de gestion de activación
+                    If regexCodCounter.IsMatch(IdProducto) Then
+                        bgwHelperResultado = 1 ' permite la carga normal con modo offline
+                    Else
+                        bgwHelperResultado = 0 ' error en la creacion pero no en la activacion de archivo
+                    End If
+                Else
+                    bgwHelperResultado = 2
+                End If
             End If
         End If
     End Sub
@@ -567,38 +709,60 @@ Public Class FormPrincipal
                 End If
             Case 2
                 Cursor.Show()
-                MsgBox("Su producto está sin licencia, por favor contacte a soporte@scantech.cl")
-                FormActivacion.ShowDialog()
+                If EstadoFormActivacion = False Then
+                    EstadoFormActivacion = True
+                    MsgBox("Su producto está sin licencia, por favor contacte a soporte@scantech.cl")
+                    FormActivacion.ShowDialog()
+                End If
             Case 3
                 Cursor.Show()
-                MsgBox("Su producto ha sido desactivado, por favor contacte a soporte@scantech.cl")
-                FormActivacion.ShowDialog()
+                If EstadoFormActivacion = False Then
+                    EstadoFormActivacion = True
+                    MsgBox("Su producto ha sido desactivado, por favor contacte a soporte@scantech.cl")
+                    FormActivacion.ShowDialog()
+                End If
             Case 4
                 Cursor.Show()
-                MsgBox("Para activar su licencia, por favor contacte a soporte@scantech.cl")
-                FormActivacion.ShowDialog()
+                If EstadoFormActivacion = False Then
+                    EstadoFormActivacion = True
+                    MsgBox("Para activar su licencia, por favor contacte a soporte@scantech.cl")
+                    FormActivacion.ShowDialog()
+                End If
         End Select
     End Sub
 #End Region
 
 #Region "Listar sensores (Lista estado de sensores según intervalo de timer. Envía dato a PLC según estado configurado en el backend) "
     Sub RutinaListarSensor()
-        bgResultado.Rows.Clear()
 
-        ConfiguracionesDatatable = Configuraciones.Listar
+        bgResultado.Rows.Clear()
+        If conexionDb Then
+            Dim dtconf = Configuraciones.Listar()
+            If dtconf IsNot Nothing Then
+                ConfiguracionesDatatable = dtconf  'solamente cambiar cuando se necesite
+            End If
+        Else
+            'actualizar cuenta con los registro del offline
+
+        End If
+
+        'siempre tiene que iniciar cargada
+
+        'cargar configuraciones default
 
         If ConfiguracionesDatatable.Rows.Count > 0 And ConfiguracionesDatatable IsNot DBNull.Value And ConfiguracionesDatatable.Columns(0).ToString <> "Error" Then
             If ConfiguracionesDatatable.Rows(0)(4) <> LecturaMinimaProducto Then 'si es distinto a lo asignado en load
                 LecturaMinimaProducto = ConfiguracionesDatatable.Rows(0)(4)
-                'Console.WriteLine($"LecturaMinimaProducto {LecturaMinimaProducto}")
             End If
 
             If ConfiguracionesDatatable.Rows(0)(5) <> LecturaMaximaProducto Then
                 LecturaMaximaProducto = ConfiguracionesDatatable.Rows(0)(5)
-                'Console.WriteLine($"LecturaMaximaProducto {LecturaMaximaProducto}")
             End If
 
         End If
+
+
+
         'Console.WriteLine($"ConfiguracionesDatatable.Rows(0)(3) {ConfiguracionesDatatable.Rows(0)(3).ToString}")
         'ConfiguracionesDatatable = Configuraciones.Listar
         'If ConfiguracionesDatatable.Rows(0)(3) = True Then 'deploy_actualizacion
@@ -607,16 +771,70 @@ Public Class FormPrincipal
         '    bgResultado.Rows.Add("Update")
         '    Exit Sub
         'End If
+        'Trace.WriteLine("fecha_busqeuda = " & UltimaFechaInicioBatch)
         Select Case Sensores.Id
             Case IdSensor1
-                Sensor1Datatable = Sensores.Listar
+                If conexionDb Then
+                    Dim dtsen1 = Sensores.Listar
+                    If dtsen1 IsNot Nothing Then
+                        Sensor1Datatable = dtsen1
+                    End If
+                Else
+                    Dim countOfRows As Integer
+                    If registrosOffline IsNot Nothing Then
+
+                        If registrosOffline.Rows.Count > 0 Then
+
+                            Trace.WriteLine("fecha = " & UltimaFechaInicioBatch)
+
+                            'ImprimeDatatable(registrosOffline,"we")
+
+                            countOfRows = registrosOffline.AsEnumerable().
+                                Where(Function(row) row.Field(Of DateTime)("fecha_insercion") > Now AndAlso row.Field(Of Integer)("idSensor") = IdSensor1).
+                                Count()
+                        Else
+                            countOfRows = 0
+                        End If
+                    Else
+                        countOfRows = 0
+                    End If
+
+                    If Sensor1Datatable IsNot Nothing Then
+                        Sensor1Datatable.Rows(0)(4) = countOfRows
+                    End If
+                End If
+
                 If Sensor1Datatable.Rows.Count > 0 And Sensor1Datatable IsNot Nothing Then
                     bgResultado.Rows.Add("Ok")
                 Else
                     bgResultado.Rows.Add("Error1")
                 End If
             Case IdSensor2
-                Sensor2Datatable = Sensores.Listar
+                If conexionDb Then
+                    Dim dtsen2 = Sensores.Listar
+                    If dtsen2 IsNot Nothing Then
+                        Sensor2Datatable = dtsen2
+                    End If
+                Else
+                    Dim countOfRows As Integer
+                    Dim fecha As DateTime = Now
+                    If registrosOffline IsNot Nothing Then
+                        If registrosOffline.Rows.Count > 0 Then
+                            countOfRows = registrosOffline.AsEnumerable().
+                                Where(Function(row) row.Field(Of DateTime)("fecha_insercion") > UltimaFechaInicioBatch AndAlso row.Field(Of Integer)("idSensor") = IdSensor2).
+                                Count()
+                        Else
+                            countOfRows = 0
+                        End If
+                    Else
+                        countOfRows = 0
+                    End If
+                    'Trace.WriteLine("nro de cuentas 2 = " & countOfRows)
+                    If Sensor2Datatable IsNot Nothing Then
+                        Sensor2Datatable.Rows(0)(4) = countOfRows
+                    End If
+                End If
+                'como obtener un conteo de inicio si no existe una cuenta' entonces iniciar un batch
                 If Sensor2Datatable.Rows.Count > 0 And Sensor2Datatable IsNot Nothing Then
                     bgResultado.Rows.Add("Ok")
                 Else
@@ -635,22 +853,20 @@ Public Class FormPrincipal
                         'If Iniciando Then
                         Contador1(0) = Sensor1Datatable.Rows(0)(4)
                         LblContador1.Text = Contador1(0)
-                            'aqui
-                            'If Sensor1Datatable.Rows(0)(4) <> ConteoBatch1 Then
-                            '    ConteoBatch1 = Sensor1Datatable.Rows(0)(4)
-                            'End If
+                        'aqui
+                        'If Sensor1Datatable.Rows(0)(4) <> ConteoBatch1 Then
+                        '    ConteoBatch1 = Sensor1Datatable.Rows(0)(4)
+                        'End If
 
-                            AcomodaLabel("Contador1")
-                                'End If
-                                'Trace.WriteLine("wenisimas")
-                                LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
+                        AcomodaLabel("Contador1")
+                        'End If
+                        'Trace.WriteLine("wenisimas")
+                        LblSensor1.Text = Sensor1Datatable.Rows(0)(SensorNombreIndex)
 
-                                'If Sensor1Datatable.Rows(5)(1) Then
-                                LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
-                                Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
-                                PbxLoadingSensor1.Hide()
-
-
+                        'If Sensor1Datatable.Rows(5)(1) Then
+                        LblSensor1Estado.Text = $"En estado [{Sensor1Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
+                        Sensor1Estado = Sensor1Datatable.Rows(0)(SensorIdEstadoIndex)
+                        PbxLoadingSensor1.Hide()
                         Sensores.Id = IdSensor2
                         IniciaBackgroundworker("ListarSensor")
                     Case IdSensor2
@@ -663,19 +879,20 @@ Public Class FormPrincipal
                         '    ConteoBatch2 = Sensor2Datatable.Rows(0)(4)
                         'End If
                         LblContador2.Text = Contador2(0)
-                            AcomodaLabel("Contador2")
-                            'End If
+                        AcomodaLabel("Contador2")
+                        'End If
 
-                            LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
-                            LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
+                        LblSensor2.Text = Sensor2Datatable.Rows(0)(SensorNombreIndex)
+                        LblSensor2Estado.Text = $"En estado [{Sensor2Datatable.Rows(0)(SensorNombreEstadoIndex)}]"
 
 
                         Sensor2Estado = Sensor2Datatable.Rows(0)(SensorIdEstadoIndex)
+
                         Contador2(0) = Sensor2Datatable.Rows(0)(4)
 
                         PbxLoadingSensor2.Hide()
 
-                            If Not TimerEstado Then
+                        If Not TimerEstado Then
                             TimerEstado = True
                             IniciaTimer("ListarSensor")
                         Else
@@ -725,14 +942,6 @@ Public Class FormPrincipal
                 total = Contador1(0) + Contador2(0)
 
                 LblTotal.Text = total
-                'If total >= LimiteBatch1 Then
-                '    EnviaCaracterArduino("k")
-                'Else
-                '    EnviaCaracterArduino("j")
-                'End If
-
-
-
             Case "Error1"
                 MuestraMensaje("Error 220", 2)
             Case "Error2"
@@ -765,7 +974,6 @@ Public Class FormPrincipal
         Lecturas.IdSensor = IdSensor
         Lecturas.FechaInsercion = Now
         Lecturas.IdEquipo = IdEquipo
-        'Trace.WriteLine("wenas")
         Await InsertarAsync()
         'InsertarAsync()
     End Sub
@@ -871,10 +1079,12 @@ Public Class FormPrincipal
                                         registrosOffline.Rows.Add(row)
                                         LblContador1.Text = Contador1(0)
                                     End If
+                                    'ImprimeDatatable(registrosOffline, "registros")
                                     Trace.WriteLine("limites 1 = " & Contador1(0) + Contador2(0) & " == " & CInt(LblTotal.Text) & "")
                                     If (Contador1(0) + Contador2(0)) >= LimiteBatch1 Then
                                         CrearBatch(IdEquipo1, NombreEquipo1)
                                     End If
+
 
                             End Select
                         End If
@@ -893,6 +1103,7 @@ Public Class FormPrincipal
                                     If conexionDb Then
                                         RutinaInsertar(IdSensor2, 2)
                                     Else
+
                                         Dim row As DataRow = registrosOffline.NewRow
                                         row(0) = registrosOffline.Rows.Count + 1
                                         row(1) = IdSensor2
@@ -942,53 +1153,88 @@ Public Class FormPrincipal
         End Try
     End Sub
     Private Sub CrearBatch(IdEquipo As Integer, NombreEquipo As String)
-        'intentar ver si el json de batchs se encuentra bien
-        Dim FechaInicioBatchLocal As New DateTime
-        If IdEquipo = 1 Then
-            FechaInicioBatchLocal = FechaInicioBatch1
-        Else
-            FechaInicioBatchLocal = FechaInicioBatch2
-        End If
+        Trace.WriteLine("creando batch")
+        Try
 
-        Dim FechaTerminoBatch As New DateTime
-        Dim Fechasegundos As New DateTime
 
-        FechaBatch = Now
-        'se añade tiempo siempre pensandoen que la ejecucion  del  ultimo pesaje se esta realizando
-        Fechasegundos = Now.AddSeconds(1)
-
-        If conexionDb Then
-            Batch.IdEquipo = IdEquipo
-            Batch.FechaInicio = FechaInicioBatchLocal
-            Batch.NombreEquipo = NombreEquipo
-
-            Dim resp = Batch.InsertarBatch()
-            'Trace.WriteLine("resp batch  = " & resp)
-            If resp = 1 Then
-                Contador1(0) = 0
-                Contador2(0) = 0
-                'Else
-                '    counBatchsDatatable.Rows.Add(IdEquipo, NombreEquipo, FechaInicioBatchLocal, Nothing)
+            'intentar ver si el json de batchs se encuentra bien
+            Dim FechaInicioBatchLocal As New DateTime
+            If IdEquipo = 1 Then
+                FechaInicioBatchLocal = FechaInicioBatch1
+            Else
+                FechaInicioBatchLocal = FechaInicioBatch2
             End If
-        Else
 
-        End If
-        If EstadoPaleta Then
-            EnviaCaracterArduino("j")
-        Else
-            EnviaCaracterArduino("k")
-        End If
-        'Insertar
-        ' insertando normalmente en la tabla de 
-        ' como respuesta registrandolo lo ultimo en le  json
+            Dim Fechasegundos As New DateTime
 
 
-        'Reseteando la insersion del batch
-        If IdEquipo = 1 Then
-            FechaInicioBatch1 = Now
-        Else
-            FechaInicioBatch2 = Now
-        End If
+            'se añade tiempo siempre pensandoen que la ejecucion  del  ultimo pesaje se esta realizando
+            Fechasegundos = Now.AddSeconds(1)
+
+            If conexionDb Then
+                Batch.IdEquipo = IdEquipo
+                Batch.FechaInicio = FechaInicioBatchLocal
+                Batch.NombreEquipo = NombreEquipo
+
+                Dim resp = Batch.InsertarBatch()
+                'Trace.WriteLine("resp batch  = " & resp)
+                If resp = 1 Then
+                    Contador1(0) = 0
+                    Contador2(0) = 0
+                End If
+            Else
+                If BatchOffline.Rows.Count > 0 Then
+                    'cambiar ultimo registro a la fecha actual
+                    Dim UltimaFila = BatchOffline.AsEnumerable().OrderByDescending(Function(row) row.Field(Of DateTime)("fecha_inicio")).First()
+                    UltimaFila(4) = Now ' fila fecha termino cambiada
+                End If
+                'SIEMPRE PONER UNO NUEVO
+
+                'BatchOffline.Columns.Add("id", GetType(Integer))
+                'BatchOffline.Columns.Add("id_equipo", GetType(Integer))
+                'BatchOffline.Columns.Add("nombre_equipo", GetType(String))
+                'BatchOffline.Columns.Add("fecha_inicio", GetType(DateTime))
+                'BatchOffline.Columns.Add("fecha_termino", GetType(DateTime))
+
+
+                BatchOffline.Rows.Add(BatchOffline.Rows.Count + 1, IdEquipo1, NombreEquipo, Now, DBNull.Value)
+
+                'ImprimeDatatable(BatchOffline, "datatable  batch")
+                ' escribir de inmediato al json, ya que los batch tienen poca probabilidad de
+                ' elimiarse durante lo que es el corte de luz en el json
+                Dim dtlll = BatchOffline
+                WriteJson(dtlll, PathBatch)
+                ' se añaden las lecturas para cuando se necesiten 
+                WriteJson(registrosOffline, PathLecturas)
+            End If
+
+            'Trace.WriteLine("3" & UltimaFechaInicioBatch)
+            UltimaFechaInicioBatch = Now ' que es mantenga localmente siempre
+            'Trace.WriteLine("4" & UltimaFechaInicioBatch)
+
+            If EstadoPaleta Then
+                EnviaCaracterArduino("j")
+            Else
+                EnviaCaracterArduino("k")
+            End If
+
+
+            'ImprimeDatatable(BatchOffline, "nuevo registro batch ")
+            'Insertar
+            ' insertando normalmente en la tabla de 
+            ' como respuesta registrandolo lo ultimo en le  json
+
+
+            'Reseteando la insersion del batch
+            If IdEquipo = 1 Then
+                FechaInicioBatch1 = Now
+            Else
+                FechaInicioBatch2 = Now
+            End If
+
+        Catch ex As Exception
+            Trace.WriteLine("exception = " & ex.Message)
+        End Try
 
     End Sub
 
@@ -1087,6 +1333,7 @@ Public Class FormPrincipal
             wenas = sensor & ":" & medio & ":" & final
             Return wenas
         Catch ex As Exception
+            Trace.WriteLine("mensaje = " & ex.Message)
             Return Nothing
         End Try
     End Function
@@ -1284,26 +1531,16 @@ Public Class FormPrincipal
                     Case 2
                         Paso1 = "z"
                 End Select
-                Trace.WriteLine(Paso1 & " es lo que envia")
-
                 EnviaCaracterArduino(Paso1)
-                Trace.WriteLine("paso1 enviado ")
                 Thread.Sleep(300)
-                Trace.WriteLine("esperado 1 segundo")
                 Paso2 = FiltroLetraEntradaSalida(valor)
                 If Paso2 IsNot Nothing Then
                     EnviaCaracterArduino(Paso2)
-                    Trace.WriteLine("paso2 enviado ")
                     Thread.Sleep(300)
-
-                    Trace.WriteLine("DORMIDO 1 SEG")
                     Paso3 = "0"
                     EnviaCaracterArduino(Paso3)
-                    Trace.WriteLine("terminando con el ultimo paso completado")
                 End If
             End If
-            Trace.WriteLine("funcion terminada buien")
-
         Catch ex As Exception
             Trace.WriteLine("Error envaindo cambio pines detalles: " & ex.Message)
         End Try
@@ -1320,8 +1557,10 @@ Public Class FormPrincipal
     End Sub
 
     Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
-        HiloSensores = New Thread(AddressOf ObtenerSensores)
-        HiloSensores.Start()
+        If conexionDb Then
+            HiloSensores = New Thread(AddressOf ObtenerSensores)
+            HiloSensores.Start()
+        End If
         TimerSensores.Stop() 'hasta que se cambien  o si detectan alguncambio que lo hacan y que no aga otro por detras
         Dim resp As Boolean = False
         Try
@@ -1329,102 +1568,29 @@ Public Class FormPrincipal
             If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
                 'cuando se levante la primera vez, como puedo saber si el pin dado existe,
                 'solamente cuando tenga conexion con la base de datos y la no se interrumpa
-
                 resp = verificacionAtrib(EntradaSensor1, Sensor1AltDatatable, 3)
                 If resp Then
-                    Trace.WriteLine("wenas")
                     EnviarCambioPines(EntradaSensor1, 0)
                     resp = False
-                    'Else
-                    '    Trace.WriteLine("no enviar")
                 End If
-                'If EntradaSensor1 IsNot Nothing Then
-                '    If EntradaSensor1 <> Sensor1AltDatatable(0)(3) Then
-                '        EntradaSensor1 = Sensor1AltDatatable(0)(3)
-                '    End If
-                'Else
-                '    EntradaSensor1 = Sensor1AltDatatable(0)(3)
-                'End If
-
-
                 resp = verificacionAtrib(EntradaSensor2, Sensor2AltDatatable, 3)
                 If resp Then
-                    Trace.WriteLine("wenas2")
                     EnviarCambioPines(EntradaSensor2, 1)
                     resp = False
-                    'Else
-                    '    Trace.WriteLine("no enviar")
                 End If
-                'If EntradaSensor2 IsNot Nothing Then
-                '    If EntradaSensor2 <> Sensor2AltDatatable(0)(3) Then
-                '        EntradaSensor2 = Sensor2AltDatatable(0)(3)
-                '    End If
-                'Else
-                '    EntradaSensor2 = Sensor2AltDatatable(0)(3)
-                'End If
-
-                'Trace.WriteLine("sensor 1 " & EntradaSensor1)
-                'Trace.WriteLine("sensor 2 " & EntradaSensor2)
             End If
-
-
 
             If ConfiguracionesDatatable IsNot Nothing Then
                 Dim i = verificacionAtrib(SalidaSensor, ConfiguracionesDatatable, 6)
                 If i Then
                     EnviarCambioPines(SalidaSensor, 2)
-                    'Else
-                    '    Trace.WriteLine("no enviar")
                 End If
-                'Trace.WriteLine("salida 1 " & SalidaSensor)
-                'If SalidaSensor <> ConfiguracionesDatatable.Rows(0)(6) Then
-                '    SalidaSensor = ConfiguracionesDatatable.Rows(0)(6)
-                'End If
-
             End If
-
             If Equipo1Datatable IsNot Nothing And Equipo2Datatable IsNot Nothing Then
-
                 verificacionAtrib(NombreEquipo1, Equipo1Datatable, 1)
-                'If NombreEquipo1 IsNot Nothing Then
-                '    If NombreEquipo1 <> Equipo1Datatable.Rows(0)(1) Then
-                '        NombreEquipo1 = Equipo1Datatable.Rows(0)(1)
-                '    End If
-                'Else
-                '    NombreEquipo1 = Equipo1Datatable.Rows(0)(1)
-                'End If
-
                 verificacionAtrib(NombreEquipo2, Equipo2Datatable, 1)
-
-                'If NombreEquipo2 IsNot Nothing Then
-                '    If NombreEquipo2 <> Equipo2Datatable.Rows(0)(1) Then
-                '        NombreEquipo2 = Equipo2Datatable.Rows(0)(1)
-                '    End If
-                'Else
-                '    NombreEquipo2 = Equipo2Datatable.Rows(0)(1)
-                'End If
-
                 verificacionAtrib(LimiteBatch1, Equipo1Datatable, 2)
-                'If LimiteBatch1 = Nothing Then
-                '    If LimiteBatch1 <> Equipo1Datatable.Rows(0)(2) Then
-                '        LimiteBatch1 = Equipo1Datatable.Rows(0)(2)
-                '    End If
-                'Else
-                '    LimiteBatch1 = Equipo1Datatable.Rows(0)(2)
-                'End If
                 verificacionAtrib(LimiteBatch2, Equipo2Datatable, 2)
-                'If LimiteBatch2 = Nothing Then
-                '    If LimiteBatch2 <> Equipo2Datatable.Rows(0)(2) Then
-                '        LimiteBatch2 = Equipo2Datatable.Rows(0)(2)
-                '    End If
-                'Else
-                '    LimiteBatch2 = Equipo2Datatable.Rows(0)(2)
-                'End If
-
-                'Trace.WriteLine("Equipo 1 " & NombreEquipo1)
-                'Trace.WriteLine("Equipo 2 " & NombreEquipo2)
-                'Trace.WriteLine("LimiteBatch 1 " & LimiteBatch1)
-                'Trace.WriteLine("LimiteBatch 2 " & LimiteBatch2)
             End If
 
         Catch ex As Exception
@@ -1490,15 +1656,67 @@ Public Class FormPrincipal
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         EnviaCaracterArduino("j") 'ESTADO PALETA = FALSE
-        Trace.WriteLine("caracter j enviado")
+        'Trace.WriteLine("caracter j enviado")
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         EnviaCaracterArduino("k") 'ESTADO PALETA = TRUE
-        Trace.WriteLine("caracter k enviado")
+        'Trace.WriteLine("caracter k enviado")
     End Sub
 
-    Private Sub Label1_Click(sender As Object, e As EventArgs) Handles Label1.Click
+    Private Sub TimerJson_Tick(sender As Object, e As EventArgs) Handles TimerJson.Tick
+        'verificar lo que viene sinedo escribir datos de la datatable al json como respaldo
+        If conexionDb = False Then
+            Trace.WriteLine("guardar en json2")
+            'si no hay conexion entonces actualiza en ambos lados solamente los datos que no fueron ingresados
+            'por la base de datos, ya que mientras no exista conexion se seguiran almacenando  cada minuto o 
+            '5 minutos
+            Dim lecturas As DataTable
+            Dim batchs As DataTable
+            lecturas = ReadJson(FsLecturas)
+            batchs = ReadJson(FsBatch)
+            'hacer un merge de los datatables ' en batch seria revisar cada unas de las fechas
+            'las lecturas puedo hacer le un gorup by por fecha solamente 
+            ' Combine the two tables into one ' se combinan por fecha de inicio o por fecha de insercion ya que 
+            ' son datos unicos que no pueden existir en otro tipo de registro
+            Dim TablaRegistroCom = registrosOffline.AsEnumerable().Union(lecturas.AsEnumerable())
+            ' Group the records by DateTime and select the first record from each group
+            Dim resultRegsitros = TablaRegistroCom.GroupBy(Function(row) row.Field(Of DateTime)("fecha_insercion")).Select(Function(group) group.First())
+            Trace.WriteLine("primero es nada por aca")
+            registrosOffline = resultRegsitros 'unidos
+            WriteJson(registrosOffline, PathLecturas)
+
+            Dim TablaBatchCom = BatchOffline.AsEnumerable().Union(batchs.AsEnumerable())
+            ' Group the records by DateTime and select the first record from each group
+            Dim resultBatch = TablaRegistroCom.GroupBy(Function(row) row.Field(Of DateTime)("fecha_inicio")).Select(Function(group) group.First())
+            registrosOffline = resultRegsitros 'unidos
+            WriteJson(BatchOffline, PathBatch)
+        Else
+            'poner todos los registros en online
+            If registrosOffline IsNot Nothing Then
+                If registrosOffline.Rows.Count > 0 Then
+                    Dim resp As Integer = Lecturas.InsertarLecturaOffline(registrosOffline)
+                    If resp = 1 Then
+                        registrosOffline.Clear()
+                        WriteJson(BatchOffline, PathBatch)
+                    Else
+                    End If
+                End If
+            End If
+
+            If BatchOffline IsNot Nothing Then
+                If BatchOffline.Rows.Count > 0 Then
+                    Dim resp As Integer = Batch.InsertarBatchOffline(BatchOffline)
+                    If resp = 1 Then
+                        BatchOffline.Clear()
+                        WriteJson(registrosOffline, PathLecturas)
+                    Else
+                        TimerOffline.Start()
+                    End If
+                End If
+
+            End If
+        End If
 
     End Sub
 

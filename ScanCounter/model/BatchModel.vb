@@ -55,7 +55,7 @@ Public Class BatchModel
     End Function
 
 
-    Public Shared Function InsertarBatchOnffline(dt As DataTable) As Integer
+    Public Function InsertarBatchOffline(dt As DataTable) As Integer
         Dim connection As New SqlConnection
         Dim tbl As New DataTable
         Dim command As New SqlCommand

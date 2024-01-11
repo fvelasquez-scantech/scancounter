@@ -69,6 +69,7 @@ Partial Class FormPrincipal
         Me.TimerRed = New System.Windows.Forms.Timer(Me.components)
         Me.TimerOffline = New System.Windows.Forms.Timer(Me.components)
         Me.TimerSensores = New System.Windows.Forms.Timer(Me.components)
+        Me.TimerJson = New System.Windows.Forms.Timer(Me.components)
         Me.Panel4.SuspendLayout()
         Me.PanelError.SuspendLayout()
         Me.Panel6.SuspendLayout()
@@ -517,6 +518,10 @@ Partial Class FormPrincipal
         '
         Me.TimerSensores.Interval = 1000
         '
+        'TimerJson
+        '
+        Me.TimerJson.Interval = 60000
+        '
         'FormPrincipal
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -607,4 +612,5 @@ Partial Class FormPrincipal
     Friend WithEvents Button2 As Button
     Friend WithEvents PbxEstadoPaleta As PictureBox
     Friend WithEvents Label1 As Label
+    Friend WithEvents TimerJson As Timer
 End Class
