@@ -1,5 +1,6 @@
 ﻿Imports System.Data.SqlClient
 Imports System.Diagnostics.Eventing
+Imports System.Web.Caching
 
 Public Class BatchModel
 
@@ -14,10 +15,11 @@ Public Class BatchModel
 
     Private Shared ReadOnly comandoCrecionTablaBatchJson As String =
                                 "CREATE TABLE ##insertar_batch_json_temp(
-                                    [id_equipo] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED , 
-                                     [nombre_equipo] [int] NULL,
-                                     [fecha_inicio] [datetime] NULL,
-                                     [fecha_termino] [datetime] NULL
+                                    [id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED , 
+                                    [id_equipo] [int] NULL,
+                                    [nombre_equipo] [Varchar](40) NULL,
+                                    [fecha_inicio] [datetime] NULL,
+                                    [fecha_termino] [datetime] NULL
                                    )"
     'se debera hacer un bulk copy de todos los  contadores
 
@@ -25,6 +27,11 @@ Public Class BatchModel
     Public Function InsertarBatch() As Integer
         Dim connection As New SqlConnection
         Dim command As SqlCommand
+        'Dim connection As New SqlConnection
+        'Dim command As SqlCommand
+        Dim da As New SqlDataAdapter
+        Dim result As New DataTable
+
         Try
             connection.ConnectionString = Configuration.ConnectionString
             command = New SqlCommand("Batch_Insertar") With {
@@ -35,16 +42,25 @@ Public Class BatchModel
             command.Parameters.AddWithValue("@fecha", Now)
             command.Parameters.AddWithValue("@nombre_equipo", NombreEquipo)
             connection.Open()
-            command.ExecuteNonQuery()
+
+
+
+            da.SelectCommand = command
+            da.Fill(result)
+
+
+            'command.ExecuteNonQuery()
             'Trace.WriteLine("wenas")
             'Return 1
             Dim resp As Integer
-            Reader = command.ExecuteReader()
-            While Reader.Read()
-                resp = Reader.GetValue(0)
-            End While
+            resp = result.Rows(0)(0)
+            'Reader = command.ExecuteReader()
+            'While Reader.Read()
+            '    resp = Reader.GetValue(0)
+            'End While
             Return resp
         Catch ex As Exception
+
             Trace.WriteLine("batch model : Insertar() :" & ex.Message)
             Return 0
         Finally
@@ -56,6 +72,7 @@ Public Class BatchModel
 
 
     Public Function InsertarBatchOffline(dt As DataTable) As Integer
+        Trace.WriteLine("WENAS")
         Dim connection As New SqlConnection
         Dim tbl As New DataTable
         Dim command As New SqlCommand
@@ -63,6 +80,9 @@ Public Class BatchModel
         Dim result As New DataTable
         Dim resp As New Integer
         resp = 0
+
+
+        FormPrincipal.ImprimeDatatable(dt, "tabla nomarl")
         Try
 
             connection.ConnectionString = Configuration.ConnectionString
@@ -71,13 +91,14 @@ Public Class BatchModel
             command.Connection = connection
             command.ExecuteNonQuery()
             Using s As SqlBulkCopy = New SqlBulkCopy(connection)
-                s.DestinationTableName = "##insertar_lecturas_temp"
+                s.DestinationTableName = "##insertar_batch_json_temp"
                 s.BatchSize = dt.Rows.Count
                 s.ColumnMappings.Add("id", "id")
-                s.ColumnMappings.Add("nombre_equipo", "nombre_equipo")
                 s.ColumnMappings.Add("id_equipo", "id_equipo")
-                s.ColumnMappings.Add("fecha_inicio", "fecha_incio")
+                s.ColumnMappings.Add("nombre_equipo", "nombre_equipo")
+                s.ColumnMappings.Add("fecha_inicio", "fecha_inicio")
                 s.ColumnMappings.Add("fecha_termino", "fecha_termino")
+                'id_equipo,nombre_equipo,fecha_inicio,fecha_termino
                 s.WriteToServer(dt)
                 s.Close()
             End Using
@@ -90,9 +111,10 @@ Public Class BatchModel
             While reader.Read()
                 resp = reader.GetValue(0)
             End While
+            Trace.WriteLine("ses " & resp)
             Return resp
         Catch ex As Exception
-            'Trace.WriteLine($"Error BalanzaInformacion 617: {ex.Message}")
+            Trace.WriteLine($"Error batchmodel 617: {ex.Message}")
             Return resp
         Finally
             If connection.State = ConnectionState.Open Then

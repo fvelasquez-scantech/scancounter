@@ -17,6 +17,7 @@ Public Class LecturasModel
                                     [id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED , 
                                      [idSensor] [int] NULL,
                                      [fecha_insercion] [datetime] NULL
+                                     [id_equipo] [int] NULL
                                    )"
 #End Region
 
@@ -66,11 +67,14 @@ Public Class LecturasModel
                 s.DestinationTableName = "##insertar_lecturas_temp"
                 s.BatchSize = dt.Rows.Count
                 s.ColumnMappings.Add("id", "id")
-                s.ColumnMappings.Add("idSensor", "idSensor")
+                s.ColumnMappings.Add("id_sensor", "id_sensor")
                 s.ColumnMappings.Add("fecha_insercion", "fecha_insercion")
+                s.ColumnMappings.Add("id_equipo", "id_equipo")
                 s.WriteToServer(dt)
                 s.Close()
             End Using
+
+
 
             command = New SqlCommand("Lecturas_InsertarOffline") With {
                 .CommandType = CommandType.StoredProcedure,
@@ -82,7 +86,7 @@ Public Class LecturasModel
             End While
             Return resp
         Catch ex As Exception
-            'Trace.WriteLine($"Error BalanzaInformacion 617: {ex.Message}")
+            Trace.WriteLine($"Error error lecturas oofline 617: {ex.Message}")
             Return resp
         Finally
             If connection.State = ConnectionState.Open Then
