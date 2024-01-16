@@ -379,7 +379,7 @@ Public Class FormPrincipal
             End If
             Return dt
         Catch ex As Exception
-            LogERR("readjson : " & ReadJson)
+
             Return Nothing
         End Try
     End Function
@@ -437,7 +437,7 @@ Public Class FormPrincipal
                 TiempoEspera = ConfiguracionesDatatable.Rows(0)(7)
 
                 COM = ConfiguracionesDatatable.Rows(0)(PuertoIndex)
-
+                'COM = "COM16"
                 Console.WriteLine($"Iniciando conexión al puerto {COM}")
                 'Console.WriteLine($"lmax  {LecturaMaximaProducto}")
                 'Console.WriteLine($"lmin  {LecturaMinimaProducto}")
@@ -1426,6 +1426,7 @@ Public Class FormPrincipal
                 ConnectPort(COM)
             End Try
         Else
+            Trace.WriteLine(COM)
             DisconnectPort()
             MuestraMensaje("Error 378", 2)
             If TimerTiempoLectura1.Enabled Then
@@ -1464,9 +1465,9 @@ Public Class FormPrincipal
 
     Public Sub LogERR(mensaje As String)
         'fsErrores = IO.File.Open(logErrores, FileMode.Open)
-        Using writer As New StreamWriter(logErrores, True)
-            writer.WriteLine(mensaje)
-        End Using
+        'Using writer As New StreamWriter(logErrores, True)
+        '    writer.WriteLine(mensaje)
+        'End Using
         'fsErrores.Close()
     End Sub
     Private Sub Application_ThreadException(ByVal sender As Object, ByVal e As ThreadExceptionEventArgs)
@@ -1664,6 +1665,7 @@ Public Class FormPrincipal
                     verificacionAtrib(LecturaMinimaProducto, ConfiguracionesDatatable, 4)
                     verificacionAtrib(LecturaMaximaProducto, ConfiguracionesDatatable, 5)
                     verificacionAtrib(COM, ConfiguracionesDatatable, PuertoIndex)
+                    'COM = "COM16"
                 End If
             End If
             'Trace.WriteLine("eq2")
