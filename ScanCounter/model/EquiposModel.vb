@@ -30,6 +30,7 @@ Public Class EquiposModel
             da.Fill(result)
             Return result
         Catch ex As Exception
+            FormPrincipal.LogERR($"Error Equipos Model 617: {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then

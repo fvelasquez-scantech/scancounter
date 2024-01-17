@@ -63,7 +63,8 @@ Public Class SensoresModel
             da.Fill(result)
             Return result
         Catch ex As Exception
-            'Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
+            FormPrincipal.LogERR($"Error sensores Model 617: {ex.Message}")
+            Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then

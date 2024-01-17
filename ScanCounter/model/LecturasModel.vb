@@ -15,17 +15,19 @@ Public Class LecturasModel
     Private Shared ReadOnly comandoCreacionTablaTemporalProductos As String =
                                 "CREATE TABLE ##insertar_lecturas_temp(
                                     [id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED , 
-                                     [idSensor] [int] NULL,
-                                     [fecha_insercion] [datetime] NULL
+                                     [id_sensor] [int] NULL,
+                                     [fecha_insercion] [datetime] NULL,
                                      [id_equipo] [int] NULL
                                    )"
 #End Region
 
 #Region "Funciones"
     Public Async Function Insertar() As Task(Of Integer)
+
         Dim connection As New SqlConnection
         Dim command As SqlCommand
         Try
+            Trace.WriteLine("intentando insertar")
             connection.ConnectionString = Configuration.ConnectionString
             command = New SqlCommand("Lecturas_Insertar") With {
                 .CommandType = CommandType.StoredProcedure,
@@ -36,10 +38,9 @@ Public Class LecturasModel
             command.Parameters.AddWithValue("@id_equipo", IdEquipo)
             connection.Open()
             Await command.ExecuteNonQueryAsync
-            Trace.WriteLine("wenas")
             Return 1
         Catch ex As Exception
-            Trace.WriteLine("lecturas model : Insertar() :" & ex.Message)
+            FormPrincipal.LogERR($"Error Lecturas Model 771: {ex.Message}")
             Return 0
         Finally
             If connection.State = ConnectionState.Open Then
@@ -73,9 +74,6 @@ Public Class LecturasModel
                 s.WriteToServer(dt)
                 s.Close()
             End Using
-
-
-
             command = New SqlCommand("Lecturas_InsertarOffline") With {
                 .CommandType = CommandType.StoredProcedure,
                 .Connection = connection
@@ -86,7 +84,8 @@ Public Class LecturasModel
             End While
             Return resp
         Catch ex As Exception
-            Trace.WriteLine($"Error error lecturas oofline 617: {ex.Message}")
+            FormPrincipal.LogERR($"Error Lecturas offline 617: {ex.Message}")
+            Trace.WriteLine($"Error Lecturas offline 617: {ex.Message}")
             Return resp
         Finally
             If connection.State = ConnectionState.Open Then
@@ -94,7 +93,5 @@ Public Class LecturasModel
             End If
         End Try
     End Function
-
-
 #End Region
 End Class

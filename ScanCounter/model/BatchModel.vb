@@ -60,7 +60,7 @@ Public Class BatchModel
             'End While
             Return resp
         Catch ex As Exception
-
+            FormPrincipal.LogERR($"Error Lecturas Model 617: {ex.Message}")
             Trace.WriteLine("batch model : Insertar() :" & ex.Message)
             Return 0
         Finally
@@ -80,11 +80,7 @@ Public Class BatchModel
         Dim result As New DataTable
         Dim resp As New Integer
         resp = 0
-
-
-        FormPrincipal.ImprimeDatatable(dt, "tabla nomarl")
         Try
-
             connection.ConnectionString = Configuration.ConnectionString
             connection.Open()
             command.CommandText = comandoCrecionTablaBatchJson
@@ -114,6 +110,7 @@ Public Class BatchModel
             Trace.WriteLine("ses " & resp)
             Return resp
         Catch ex As Exception
+            FormPrincipal.LogERR($"Error Batch Model 617: {ex.Message}")
             Trace.WriteLine($"Error batchmodel 617: {ex.Message}")
             Return resp
         Finally
