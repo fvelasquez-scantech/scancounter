@@ -196,6 +196,8 @@ Partial Class FormPrincipal
         '
         Me.Panel6.BackColor = System.Drawing.Color.MidnightBlue
         Me.Panel6.Controls.Add(Me.Label1)
+        Me.Panel6.Controls.Add(Me.Button1)
+        Me.Panel6.Controls.Add(Me.Button2)
         Me.Panel6.Controls.Add(Me.PbxLoading3)
         Me.Panel6.Controls.Add(Me.PbxComStatus)
         Me.Panel6.Controls.Add(Me.PbxNetworkStatus)
@@ -285,7 +287,6 @@ Partial Class FormPrincipal
         '
         Me.Panel1.BackColor = System.Drawing.Color.Lavender
         Me.Panel1.Controls.Add(Me.LblLectura1)
-        Me.Panel1.Controls.Add(Me.Button1)
         Me.Panel1.Controls.Add(Me.Label3)
         Me.Panel1.Controls.Add(Me.LblSensor1Estado)
         Me.Panel1.Controls.Add(Me.Panel3)
@@ -309,11 +310,11 @@ Partial Class FormPrincipal
         '
         'Button1
         '
-        Me.Button1.Location = New System.Drawing.Point(879, 206)
+        Me.Button1.Location = New System.Drawing.Point(162, 338)
         Me.Button1.Name = "Button1"
         Me.Button1.Size = New System.Drawing.Size(75, 23)
         Me.Button1.TabIndex = 27
-        Me.Button1.Text = "Button1"
+        Me.Button1.Text = "Cerrar Paleta"
         Me.Button1.UseVisualStyleBackColor = True
         '
         'LblSensor1Estado
@@ -387,7 +388,6 @@ Partial Class FormPrincipal
         '
         Me.Panel2.BackColor = System.Drawing.Color.Snow
         Me.Panel2.Controls.Add(Me.PbxEstadoPaleta)
-        Me.Panel2.Controls.Add(Me.Button2)
         Me.Panel2.Controls.Add(Me.LblLectura2)
         Me.Panel2.Controls.Add(Me.Label4)
         Me.Panel2.Controls.Add(Me.LblSensor2Estado)
@@ -402,11 +402,11 @@ Partial Class FormPrincipal
         '
         'Button2
         '
-        Me.Button2.Location = New System.Drawing.Point(8, 206)
+        Me.Button2.Location = New System.Drawing.Point(162, 367)
         Me.Button2.Name = "Button2"
         Me.Button2.Size = New System.Drawing.Size(75, 23)
         Me.Button2.TabIndex = 28
-        Me.Button2.Text = "Button2"
+        Me.Button2.Text = "Abrir"
         Me.Button2.UseVisualStyleBackColor = True
         '
         'LblLectura2
