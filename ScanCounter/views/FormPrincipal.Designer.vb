@@ -36,6 +36,8 @@ Partial Class FormPrincipal
         Me.LblVersion = New System.Windows.Forms.Label()
         Me.Panel6 = New System.Windows.Forms.Panel()
         Me.Label1 = New System.Windows.Forms.Label()
+        Me.Button1 = New System.Windows.Forms.Button()
+        Me.Button2 = New System.Windows.Forms.Button()
         Me.PbxLoading3 = New System.Windows.Forms.PictureBox()
         Me.PbxComStatus = New System.Windows.Forms.PictureBox()
         Me.PbxNetworkStatus = New System.Windows.Forms.PictureBox()
@@ -44,7 +46,6 @@ Partial Class FormPrincipal
         Me.PbxEstadoPaleta = New System.Windows.Forms.PictureBox()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.LblLectura1 = New System.Windows.Forms.Label()
-        Me.Button1 = New System.Windows.Forms.Button()
         Me.LblSensor1Estado = New System.Windows.Forms.Label()
         Me.Panel3 = New System.Windows.Forms.Panel()
         Me.PanelLoadingS1 = New System.Windows.Forms.Panel()
@@ -52,7 +53,6 @@ Partial Class FormPrincipal
         Me.PbxLoading4 = New System.Windows.Forms.PictureBox()
         Me.PbxLoadingSensor1 = New System.Windows.Forms.PictureBox()
         Me.Panel2 = New System.Windows.Forms.Panel()
-        Me.Button2 = New System.Windows.Forms.Button()
         Me.LblLectura2 = New System.Windows.Forms.Label()
         Me.LblSensor2Estado = New System.Windows.Forms.Label()
         Me.Panel5 = New System.Windows.Forms.Panel()
@@ -220,6 +220,24 @@ Partial Class FormPrincipal
         Me.Label1.TabIndex = 23
         Me.Label1.Text = " Pzs"
         '
+        'Button1
+        '
+        Me.Button1.Location = New System.Drawing.Point(162, 338)
+        Me.Button1.Name = "Button1"
+        Me.Button1.Size = New System.Drawing.Size(75, 23)
+        Me.Button1.TabIndex = 27
+        Me.Button1.Text = "Cerrar Paleta"
+        Me.Button1.UseVisualStyleBackColor = True
+        '
+        'Button2
+        '
+        Me.Button2.Location = New System.Drawing.Point(162, 367)
+        Me.Button2.Name = "Button2"
+        Me.Button2.Size = New System.Drawing.Size(75, 23)
+        Me.Button2.TabIndex = 28
+        Me.Button2.Text = "Abrir"
+        Me.Button2.UseVisualStyleBackColor = True
+        '
         'PbxLoading3
         '
         Me.PbxLoading3.Location = New System.Drawing.Point(53, 77)
@@ -308,15 +326,6 @@ Partial Class FormPrincipal
         Me.LblLectura1.TabIndex = 25
         Me.LblLectura1.Text = "0"
         '
-        'Button1
-        '
-        Me.Button1.Location = New System.Drawing.Point(162, 338)
-        Me.Button1.Name = "Button1"
-        Me.Button1.Size = New System.Drawing.Size(75, 23)
-        Me.Button1.TabIndex = 27
-        Me.Button1.Text = "Cerrar Paleta"
-        Me.Button1.UseVisualStyleBackColor = True
-        '
         'LblSensor1Estado
         '
         Me.LblSensor1Estado.AutoSize = True
@@ -399,15 +408,6 @@ Partial Class FormPrincipal
         Me.Panel2.Name = "Panel2"
         Me.Panel2.Size = New System.Drawing.Size(426, 358)
         Me.Panel2.TabIndex = 20
-        '
-        'Button2
-        '
-        Me.Button2.Location = New System.Drawing.Point(162, 367)
-        Me.Button2.Name = "Button2"
-        Me.Button2.Size = New System.Drawing.Size(75, 23)
-        Me.Button2.TabIndex = 28
-        Me.Button2.Text = "Abrir"
-        Me.Button2.UseVisualStyleBackColor = True
         '
         'LblLectura2
         '

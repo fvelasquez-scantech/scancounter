@@ -7,9 +7,40 @@ Public Class ConfiguracionesModel
     Public Property Puerto As String
     Public Property ActualizacionDisponible As Boolean
     Public Property DeployActualizacion As Boolean
+    Public Property EstadoPaleta As Boolean
 #End Region
 
 #Region "Funciones"
+
+    Public Function ActualizarPaleta() As DataTable
+        Dim connection As New SqlConnection
+        Dim command As SqlCommand
+        Dim da As New SqlDataAdapter
+        Dim result As New DataTable
+        Try
+            connection.ConnectionString = Configuration.ConnectionString
+            command = New SqlCommand("Configuraciones_ActualizarPaleta") With {
+                .CommandType = CommandType.StoredProcedure,
+                .Connection = connection
+            }
+            command.Parameters.AddWithValue("@id", Id)
+            command.Parameters.AddWithValue("@estado_paleta", EstadoPaleta)
+            connection.Open()
+            da.SelectCommand = command
+            da.Fill(result)
+            Return result
+        Catch ex As Exception
+            result.Columns.Add("Error")
+            result.Rows.Add(ex.Message)
+            Return result
+        Finally
+            If connection.State = ConnectionState.Open Then
+                connection.Close()
+            End If
+        End Try
+    End Function
+
+
     Public Function Listar() As DataTable
         Dim connection As New SqlConnection
         Dim command As SqlCommand

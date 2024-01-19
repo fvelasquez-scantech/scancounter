@@ -62,7 +62,16 @@ Public Class FormPrincipal
     Private ContErrores As Integer = 0
 
     Private EstadoFormActivacion As Boolean = False
-    Private EstadoPaleta As Boolean
+    'variables de cambio de paleta
+    Private EstadoPaletaAsingadaPlc As Boolean = False
+    Private EstadoPaleta As Boolean = False
+    Private PrimeraAsignacionPaleta As Boolean = False
+
+    'tipos de cambio paleta desde front o back
+    Private CambioPaletaDesdeFront As Boolean = False
+    Private CambioPaletaDesdeBack As Boolean = False
+
+
     'Delegado para lectura desde serial port arduino
     Delegate Sub myMethodDelegate()
     Private DelegadoArduino As New myMethodDelegate(AddressOf DataArduino)
@@ -1209,11 +1218,21 @@ Public Class FormPrincipal
                         TimerTiempoLectura2.Enabled = True
                         TimerTiempoLectura2.Start()
                     Case "L"
+
+                        If EstadoPaletaAsingadaPlc = False Then
+                            EstadoPaletaAsingadaPlc = True
+                        End If
+
                         EstadoPaleta = True
                         PbxEstadoPaleta.Image = My.Resources.PaletaAbierta
                         Button1.BackColor = Color.LightYellow
                         Button2.BackColor = Color.White
                     Case "S"
+
+                        If EstadoPaletaAsingadaPlc = False Then
+                            EstadoPaletaAsingadaPlc = True
+                        End If
+
                         Button1.BackColor = Color.White
                         Button2.BackColor = Color.LightYellow
                         EstadoPaleta = False
@@ -1223,7 +1242,6 @@ Public Class FormPrincipal
                 LblTotal.Text = CInt(LblContador1.Text) + CInt(LblContador2.Text)
             Else
                 MuestraMensaje("Error 332", 2)
-
             End If
             'Trace.WriteLine("wenas")
             'Mueve texto del contador para centrarlo
@@ -1238,6 +1256,31 @@ Public Class FormPrincipal
             MuestraMensaje("Error 552", 2)
         End Try
     End Sub
+    'se necesita ver cuando se prende en que estado paleta estubo la ultima vez
+    Private Sub AsignarPrimerEstadoPaleta()
+        If conexionDb Then
+
+            Configuraciones.Id = 1
+            Configuraciones.EstadoPaleta = EstadoPaleta
+            Dim resp = Configuraciones.ActualizarPaleta()
+            ImprimeDatatable(resp, "wen")
+            If resp.Rows(0)(0) = 1 Then
+                If CambioPaletaDesdeFront = True Then
+                    CambioPaletaDesdeFront = False ' para que la proxima vez no lo realize
+                End If
+                PrimeraAsignacionPaleta = True
+            Else
+                If CambioPaletaDesdeFront = False Then
+                    PrimeraAsignacionPaleta = False
+                End If
+            End If
+        Else
+            If CambioPaletaDesdeFront = False Then
+                PrimeraAsignacionPaleta = False
+            End If
+        End If
+    End Sub
+
     Private Sub CrearBatch(IdEquipo As Integer, NombreEquipo As String)
         'Trace.WriteLine("creando batch")
         Try
@@ -1307,11 +1350,14 @@ Public Class FormPrincipal
                 WriteJson(registrosOffline, PathLecturas)
             End If
 
+
             If CambiandoPaleta = False Then
                 CambiandoPaleta = True
                 Dim HiloCambioPaleta = New Thread(AddressOf CambiarPaleta)
                 HiloCambioPaleta.Start()
             End If
+
+
             UltimaFechaInicioBatch = Now ' que es mantenga localmente siempre
             UltimacuentaOnline1 = 0
             UltimacuentaOnline2 = 0
@@ -1416,6 +1462,7 @@ Public Class FormPrincipal
                 'End If
                 PbxComStatus.Image = My.Resources.green_dot
             Catch ex As Exception
+
                 DisconnectPort()
                 MuestraMensaje($"Error 374", 2)
                 PbxComStatus.Image = My.Resources.red_dot
@@ -1428,6 +1475,9 @@ Public Class FormPrincipal
                 ConnectPort(COM)
             End Try
         Else
+
+
+
             'Trace.WriteLine(COM)
             DisconnectPort()
             MuestraMensaje("Error 378", 2)
@@ -1480,6 +1530,7 @@ Public Class FormPrincipal
         End If
     End Sub
     Private Sub Application_ThreadException(ByVal sender As Object, ByVal e As ThreadExceptionEventArgs)
+        ContErrores = 5
         LogERR("Error Crash Tread: reiniciando con hora " & Now & " Error: " & e.Exception.Message & " / " & e.Exception.TargetSite.ToString)
         If ComandoEjecutado = False Then
             ComandoEjecutado = True
@@ -1488,6 +1539,7 @@ Public Class FormPrincipal
     End Sub
     Private Sub CurrentDomain_UnhandledException(ByVal sender As Object, ByVal e As UnhandledExceptionEventArgs)
         'Dim ex As Exception = DirectCast(e.ExceptionObject, Exception)
+        ContErrores = 5
         LogERR("Error Crash Exep: reiniciando con hora " & Now & " Error: " & e.ExceptionObject.Message & " / " & e.ExceptionObject.TargetSite.ToString)
         If ComandoEjecutado = False Then
             ComandoEjecutado = True
@@ -1496,6 +1548,8 @@ Public Class FormPrincipal
     End Sub
 
     Public Sub lazaro()
+
+        'Trace.WriteLine("lazaro 1")
         Dim path_batch As String = "C:\Scantech\batch_counter.bat"
         Dim fs As FileStream
         If Not IO.File.Exists(path_batch) Then
@@ -1503,6 +1557,7 @@ Public Class FormPrincipal
         Else
             fs = IO.File.Open(path_batch, FileMode.Open)
         End If
+        'Trace.WriteLine("lazaro 2")
         Dim path_batch_txt As String = "@echo off
                                         taskkill /f /im SC100PLUS.exe
                                         timeout /t 10 /nobreak >nul
@@ -1511,9 +1566,19 @@ Public Class FormPrincipal
         Using writer As New StreamWriter(fs)
             writer.Write(path_batch_txt)
         End Using
+        'Trace.WriteLine("lazaro 3")
+        'Me.Close() ' cerrar la aplicacion por que si
+        ejecutarComando(path_batch) ' eliminar la aplicacion de inmediato para que no se siga repitiendo
+        Dim currPrsName As String = Process.GetCurrentProcess().ProcessName
+        'Trace.WriteLine("lazaro 4")
 
-        ejecutarComando(path_batch)
-        Me.Close() ' cerrar la aplicacion por que si
+
+        'descomentar esto para cuando no este debugueando
+        'Dim allProcessWithThisName() As Process = Process.GetProcessesByName(currPrsName)
+        'For Each proc As Process In allProcessWithThisName
+        '    proc.Kill()
+        'Next
+
     End Sub
     Public Sub ejecutarComando(command As String)
         Dim p As New Process
@@ -1643,7 +1708,37 @@ Public Class FormPrincipal
     End Sub
 
     Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
+
+
+        If CambioPaletaDesdeBack Then
+            If EstadoPaleta Then
+                EnviaCaracterArduino("j")
+            Else
+                EnviaCaracterArduino("k")
+            End If
+
+        End If
+
+
         If conexionDb Then
+            'Private EstadoPaleta As Boolean
+            'Private PrimeraAsignacionPaleta As Boolean = False
+            If CambioPaletaDesdeFront Then
+                AsignarPrimerEstadoPaleta() ' se asigna como el acutal ya que 
+                'si se presiono el boton de backend se debe cambiar o acutalizar en el fornt end
+            End If
+
+
+
+            If EstadoPaletaAsingadaPlc And PrimeraAsignacionPaleta = False Then
+                'intentar  asignar en base de datos el valor sin importar su estado desde ella, luego de eso  recibir actualizaciones
+                'puede inclusive insertar el primer estado en el que la base de datos
+                'ya de por si representaba
+                'CambiarPaleta()
+                AsignarPrimerEstadoPaleta()
+            End If
+
+
             HiloSensores = New Thread(AddressOf ObtenerSensores)
             HiloSensores.Start()
         End If
@@ -1675,6 +1770,9 @@ Public Class FormPrincipal
             'Trace.WriteLine("conf2")
             If ConfiguracionesDatatable IsNot Nothing Then
                 If ConfiguracionesDatatable.Columns.Count > 1 Then
+
+                    ImprimeDatatable(ConfiguracionesDatatable, "wenas")
+
                     Dim i = verificacionAtrib(SalidaSensor, ConfiguracionesDatatable, 6)
                     If i Then
                         EnviarCambioPines(SalidaSensor, 2)
@@ -1683,6 +1781,12 @@ Public Class FormPrincipal
                     verificacionAtrib(LecturaMinimaProducto, ConfiguracionesDatatable, 4)
                     verificacionAtrib(LecturaMaximaProducto, ConfiguracionesDatatable, 5)
                     verificacionAtrib(COM, ConfiguracionesDatatable, PuertoIndex)
+                    Dim x = verificacionAtrib(EstadoPaleta, ConfiguracionesDatatable, 8)
+                    If x Then
+                        Trace.WriteLine("cambiado")
+                        'esta cambiand mucho de tabal
+                        CambioPaletaDesdeBack = True
+                    End If
                     'COM = "COM16"
                 End If
             End If
@@ -1764,10 +1868,13 @@ Public Class FormPrincipal
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         EnviaCaracterArduino("j") 'ESTADO PALETA = FALSE 
+        CambioPaletaDesdeFront = True
+
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         EnviaCaracterArduino("k") 'ESTADO PALETA = TRUE
+        CambioPaletaDesdeFront = True
     End Sub
 
     Private Sub TimerJson_Tick(sender As Object, e As EventArgs) Handles TimerJson.Tick
@@ -1802,9 +1909,7 @@ Public Class FormPrincipal
                 Dim resultRegsitros = TablaRegistroCom.GroupBy(Function(row) row.Field(Of DateTime)("fecha_insercion")).Select(Function(group) group.First())
                 registrosOffline = resultRegsitros 'unidos
                 WriteJson(registrosOffline, PathLecturas)
-
                 Dim TablaBatchCom
-
                 If batchs IsNot Nothing Then
                     If batchs.Rows.Count > 1 And batchs.Columns.Count > 1 Then
                         TablaBatchCom = BatchOffline.AsEnumerable().Union(batchs.AsEnumerable())
