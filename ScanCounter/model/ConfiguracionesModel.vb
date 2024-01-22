@@ -7,7 +7,8 @@ Public Class ConfiguracionesModel
     Public Property Puerto As String
     Public Property ActualizacionDisponible As Boolean
     Public Property DeployActualizacion As Boolean
-    Public Property EstadoPaleta As Boolean
+    Public Property EstadoPaleta As Integer
+    Public Property SolicitudBatch As Integer
 #End Region
 
 #Region "Funciones"
@@ -24,7 +25,7 @@ Public Class ConfiguracionesModel
                 .Connection = connection
             }
             command.Parameters.AddWithValue("@id", Id)
-            command.Parameters.AddWithValue("@estado_paleta", EstadoPaleta)
+            command.Parameters.AddWithValue("@estado_paleta", EstadoPaleta) ' tru false
             connection.Open()
             da.SelectCommand = command
             da.Fill(result)
@@ -32,6 +33,8 @@ Public Class ConfiguracionesModel
         Catch ex As Exception
             result.Columns.Add("Error")
             result.Rows.Add(ex.Message)
+            FormPrincipal.LogERR($"Error Configuraciones Model 164: {ex.Message}")
+            Trace.WriteLine($"Error Configuraciones Model 164: {ex.Message}")
             Return result
         Finally
             If connection.State = ConnectionState.Open Then
@@ -124,6 +127,8 @@ Public Class ConfiguracionesModel
                 result = False
             End If
         Catch ex As Exception
+            FormPrincipal.LogERR($"Error Configuraciones Model depl: {ex.Message}")
+            Trace.WriteLine($"Error Configuraciones Model depl: {ex.Message}")
             result = False
         Finally
             If connection.State = ConnectionState.Open Then
@@ -133,6 +138,40 @@ Public Class ConfiguracionesModel
 
         Return result
     End Function
+
+
+    Public Function CambiarEstadBatch() As Integer
+        Dim connection As New SqlConnection
+        Dim command As SqlCommand
+        Dim da As New SqlDataAdapter
+        Dim result As New DataTable
+
+        Try
+            connection.ConnectionString = Configuration.ConnectionString
+            command = New SqlCommand("Configuraciones_SolicitudBatch") With {
+                .CommandType = CommandType.StoredProcedure,
+                .Connection = connection
+            }
+
+            command.Parameters.AddWithValue("@solicitud_batch", SolicitudBatch)
+            command.CommandTimeout = 1
+            connection.Open()
+
+            da.SelectCommand = command
+            da.Fill(result)
+            Return result.Rows(0)(0)
+        Catch ex As Exception
+            Trace.WriteLine($"Error (SensorModel 12) {ex.Message}")
+            Return 0
+        Finally
+            If connection.State = ConnectionState.Open Then
+                connection.Close()
+            End If
+        End Try
+    End Function
+
+
+
 #End Region
 
 End Class

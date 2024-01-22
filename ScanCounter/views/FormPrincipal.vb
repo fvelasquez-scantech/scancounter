@@ -1,27 +1,12 @@
-﻿Imports System.Net
+﻿Imports System.Drawing.Color
+Imports System.IO
+Imports System.Net
+Imports System.Text.RegularExpressions
+Imports System.Threading
 Imports System.Xml
+Imports Newtonsoft.Json
 Imports Newtonsoft.Json.Linq
 Imports RestSharp
-Imports System.Drawing.Color
-Imports System.Web.Management
-Imports System.Data.SqlClient
-Imports System.ComponentModel
-Imports System.Web.ModelBinding
-Imports System.Runtime.Remoting.Messaging
-Imports System.Runtime.InteropServices
-Imports System.IO
-Imports System.Threading
-Imports System.Security.Cryptography.X509Certificates
-Imports System.Data.SqlTypes
-Imports System.Net.NetworkInformation
-Imports System.Text.RegularExpressions
-Imports Newtonsoft.Json
-Imports System.Text
-Imports System.Web.UI
-Imports System.Runtime.InteropServices.ComTypes
-Imports System.Runtime.CompilerServices
-Imports System.Web.UI.WebControls
-Imports System.Diagnostics.Eventing.Reader
 
 Public Class FormPrincipal
     'Variables de ayuda para backgroundworker
@@ -64,7 +49,7 @@ Public Class FormPrincipal
     Private EstadoFormActivacion As Boolean = False
     'variables de cambio de paleta
     Private EstadoPaletaAsingadaPlc As Boolean = False
-    Private EstadoPaleta As Boolean = False
+    Private EstadoPaleta As Integer = 0 ''esta apagada
     Private PrimeraAsignacionPaleta As Boolean = False
 
     'tipos de cambio paleta desde front o back
@@ -99,6 +84,10 @@ Public Class FormPrincipal
 
     Private TiempoEspera As Integer = 10000 ' default 10 segundos para cmabio de paleta  hasta que se desaga todo
 
+
+    Private PeticionBatch As Integer = 0 ' estado normal
+    Private ProcesandoSolicitudBatch As Boolean = False
+    Private BatchDeSolicitudInsertado As Boolean = False
     'equipos
     Private IdEquipo1 As Byte = 1
     Private IdEquipo2 As Byte = 2
@@ -303,11 +292,7 @@ Public Class FormPrincipal
         Sensor2Datatable.Rows.Add(2, "Grader 2", 1, "Iniciado", 0, "I0_5")
 
         '<---------------------------archivos------------------->
-        'los json se utilizaran netamente cuando se apague y se enciaendda, existe un riesgo cuando
-        ' se ingresen mucho las lecturas en el dedillo de las lecturas, por eso
-        ' el json se actualizara cada  10 minutos que es el tiempo medio por el cual se necesita 
-        'para que vuelva la conexion requerida en planta, si no lo hace podria estar asi indefinidamente 
-        ' siempre validando cada 10 mintuos
+
 
         'If Not IO.File.Exists(PathBatch) Then
         '    FsBatch = IO.File.Create(PathBatch)
@@ -319,8 +304,6 @@ Public Class FormPrincipal
         If dtba IsNot Nothing Then
             If dtba.Columns.Count > 2 Or dtba.Rows.Count > 1 Then
                 BatchOffline = dtba
-                'Trace.WriteLine("ultima fecha desde json")
-                'ImprimeDatatable(BatchOffline, "wenas")
                 UltimaFechaInicioBatch = BatchOffline.AsEnumerable().Max(Function(row) row.Field(Of DateTime)("fecha_inicio"))
             Else
                 'BatchOffline.Rows.Add(BatchOffline.Rows.Count + 1, IdEquipo1, NombreEquipo1, Now.ToString("dd-MM-yyyy HH:mm:ss"), DBNull.Value)
@@ -1222,8 +1205,11 @@ Public Class FormPrincipal
                         If EstadoPaletaAsingadaPlc = False Then
                             EstadoPaletaAsingadaPlc = True
                         End If
-
-                        EstadoPaleta = True
+                        'dejar asingar solamente cuando no esta viendo de otro
+                        'lado el cambio
+                        If CambioPaletaDesdeBack = False Then
+                            EstadoPaleta = 1
+                        End If
                         PbxEstadoPaleta.Image = My.Resources.PaletaAbierta
                         Button1.BackColor = Color.LightYellow
                         Button2.BackColor = Color.White
@@ -1232,10 +1218,12 @@ Public Class FormPrincipal
                         If EstadoPaletaAsingadaPlc = False Then
                             EstadoPaletaAsingadaPlc = True
                         End If
+                        If CambioPaletaDesdeBack = False Then
+                            EstadoPaleta = 0
+                        End If
 
                         Button1.BackColor = Color.White
                         Button2.BackColor = Color.LightYellow
-                        EstadoPaleta = False
                         PbxEstadoPaleta.Image = My.Resources.PaletaCerrada
                 End Select
 
@@ -1263,7 +1251,7 @@ Public Class FormPrincipal
             Configuraciones.Id = 1
             Configuraciones.EstadoPaleta = EstadoPaleta
             Dim resp = Configuraciones.ActualizarPaleta()
-            ImprimeDatatable(resp, "wen")
+            'ImprimeDatatable(resp, "wen")
             If resp.Rows(0)(0) = 1 Then
                 If CambioPaletaDesdeFront = True Then
                     CambioPaletaDesdeFront = False ' para que la proxima vez no lo realize
@@ -1321,6 +1309,7 @@ Public Class FormPrincipal
                 Batch.NombreEquipo = NombreEquipo
 
                 Dim resp = Batch.InsertarBatch()
+
                 If resp = 1 Then
                     Contador1(0) = 0
                     Contador2(0) = 0
@@ -1331,6 +1320,8 @@ Public Class FormPrincipal
                     Else
                         FechaInicioBatch2 = Now
                     End If
+                    'solo liverado cuando  se hacer online
+                    BatchDeSolicitudInsertado = True
                 End If
             Else
                 'Trace.WriteLine("batch  por offline")
@@ -1370,10 +1361,10 @@ Public Class FormPrincipal
 
     Public Sub CambiarPaleta()
         Thread.Sleep(TiempoEspera)
-        If EstadoPaleta Then
-            EnviaCaracterArduino("j")
+        If EstadoPaleta = 1 Then
+            EnviaCaracterArduino("k") 'abierta
         Else
-            EnviaCaracterArduino("k")
+            EnviaCaracterArduino("j") 'cerrada
         End If
         CambiandoPaleta = False
     End Sub
@@ -1709,14 +1700,40 @@ Public Class FormPrincipal
 
     Private Sub TimerSensores_Tick(sender As Object, e As EventArgs) Handles TimerSensores.Tick
 
+        'peticion batch
+        If PeticionBatch = 1 Then
+            If ProcesandoSolicitudBatch = False Then ' se hace para que no procese mas de 1 vez
+                'solo se livera le procesado cuando esta en estado 2 o 0
+                ProcesandoSolicitudBatch = True
+                Trace.WriteLine("procesando solicitud  desde el backend  batch")
+                CrearBatch(IdEquipo1, NombreEquipo1)
+            End If
+        End If
 
-        If CambioPaletaDesdeBack Then
-            If EstadoPaleta Then
-                EnviaCaracterArduino("j")
-            Else
-                EnviaCaracterArduino("k")
+        If BatchDeSolicitudInsertado Then
+            Configuraciones.SolicitudBatch = 2 ' activa la solicitud
+            Dim x = Configuraciones.CambiarEstadBatch()
+            If x = 1 Then
+                BatchDeSolicitudInsertado = False ' se reinicia todo
             End If
 
+        End If
+
+
+
+
+        'cambio de paleta con backend
+        If CambioPaletaDesdeBack Then
+
+            If EstadoPaleta = 1 Then
+                Trace.WriteLine("abriendo paleta")
+                EnviaCaracterArduino("k")
+                CambioPaletaDesdeBack = False
+            Else
+                Trace.WriteLine("cerrando paleta")
+                EnviaCaracterArduino("j")
+                CambioPaletaDesdeBack = False
+            End If
         End If
 
 
@@ -1728,8 +1745,6 @@ Public Class FormPrincipal
                 'si se presiono el boton de backend se debe cambiar o acutalizar en el fornt end
             End If
 
-
-
             If EstadoPaletaAsingadaPlc And PrimeraAsignacionPaleta = False Then
                 'intentar  asignar en base de datos el valor sin importar su estado desde ella, luego de eso  recibir actualizaciones
                 'puede inclusive insertar el primer estado en el que la base de datos
@@ -1738,13 +1753,12 @@ Public Class FormPrincipal
                 AsignarPrimerEstadoPaleta()
             End If
 
-
             HiloSensores = New Thread(AddressOf ObtenerSensores)
             HiloSensores.Start()
         End If
-        TimerSensores.Stop() 'hasta que se cambien  o si detectan alguncambio que lo hacan y que no aga otro por detras
         Dim resp As Boolean = False
         Try
+            TimerSensores.Stop() 'hasta que se cambien  o si detectan alguncambio que lo hacan y que no aga otro por detras
             'mientras tengan datos entonces que compare
             If Sensor1AltDatatable IsNot Nothing And Sensor2AltDatatable IsNot Nothing Then
                 'cuando se levante la primera vez, como puedo saber si el pin dado existe,
@@ -1771,7 +1785,7 @@ Public Class FormPrincipal
             If ConfiguracionesDatatable IsNot Nothing Then
                 If ConfiguracionesDatatable.Columns.Count > 1 Then
 
-                    ImprimeDatatable(ConfiguracionesDatatable, "wenas")
+                    'ImprimeDatatable(ConfiguracionesDatatable, "wenas")
 
                     Dim i = verificacionAtrib(SalidaSensor, ConfiguracionesDatatable, 6)
                     If i Then
@@ -1781,13 +1795,23 @@ Public Class FormPrincipal
                     verificacionAtrib(LecturaMinimaProducto, ConfiguracionesDatatable, 4)
                     verificacionAtrib(LecturaMaximaProducto, ConfiguracionesDatatable, 5)
                     verificacionAtrib(COM, ConfiguracionesDatatable, PuertoIndex)
+                    'Boolean con un integer
                     Dim x = verificacionAtrib(EstadoPaleta, ConfiguracionesDatatable, 8)
+
+                    'Trace.WriteLine("estado paleta " & EstadoPaleta & " en dt = " & ConfiguracionesDatatable.Rows(0)(8))
                     If x Then
                         Trace.WriteLine("cambiado")
-                        'esta cambiand mucho de tabal
                         CambioPaletaDesdeBack = True
                     End If
-                    'COM = "COM16"
+
+
+                    verificacionAtrib(PeticionBatch, ConfiguracionesDatatable, 9)
+                    If ProcesandoSolicitudBatch Then
+                        If PeticionBatch = 0 Or PeticionBatch = 2 Then
+                            Trace.WriteLine("proceso para liverar terminado con codigo " & PeticionBatch)
+                            ProcesandoSolicitudBatch = False ' se livera lo ultimo
+                        End If
+                    End If
                 End If
             End If
             'Trace.WriteLine("eq2")
@@ -1811,6 +1835,10 @@ Public Class FormPrincipal
 
     Public Function verificacionAtrib(ByRef variable As Object, ByRef datatable As DataTable, posicionDatatable As Integer) As Boolean
         Dim resp = False
+
+        'If posicionDatatable = 8 Then
+        '    'Trace.WriteLine("variable  = " & variable & " datattable = " & datatable.Rows(0)(posicionDatatable))
+        'End If
         If variable IsNot Nothing Then
             If variable <> datatable.Rows(0)(posicionDatatable) Then
                 variable = datatable.Rows(0)(posicionDatatable)
