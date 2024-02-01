@@ -38,7 +38,6 @@ C:\laragon\www\scancounter\ScanCounter\bin\Debug\RestSharp.dll
 C:\laragon\www\scancounter\ScanCounter\bin\Debug\Newtonsoft.Json.xml
 C:\laragon\www\scancounter\ScanCounter\bin\Debug\RestSharp.xml
 C:\laragon\www\scancounter\ScanCounter\obj\Debug\ScanCounter.vbproj.AssemblyReference.cache
-C:\laragon\www\scancounter\ScanCounter\obj\Debug\ScanCounter.vbproj.SuggestedBindingRedirects.cache
 C:\laragon\www\scancounter\ScanCounter\obj\Debug\ScanCounter.FormActivacion.resources
 C:\laragon\www\scancounter\ScanCounter\obj\Debug\ScanCounter.FormPrincipal.resources
 C:\laragon\www\scancounter\ScanCounter\obj\Debug\ScanCounter.Resources.resources

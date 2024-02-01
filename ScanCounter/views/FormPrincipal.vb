@@ -1,4 +1,5 @@
-﻿Imports System.Drawing.Color
+﻿Imports System.Diagnostics.Eventing.Reader
+Imports System.Drawing.Color
 Imports System.IO
 Imports System.Net
 Imports System.Text.RegularExpressions
@@ -74,6 +75,9 @@ Public Class FormPrincipal
 
     Private UltimacuentaOnline1 As Integer
     Private UltimacuentaOnline2 As Integer
+    ' arreglo de problema por que paletea una y otra vez desde que se deja de paletear
+    Private EstadoCrearBatchTimer As Boolean = False
+
 
     'sensores
     Private IdSensor1 As Integer = 5
@@ -116,6 +120,7 @@ Public Class FormPrincipal
 
 
     Private HiloSensores As Thread
+    Private HiloCancelacionBatch As Thread
     Private COM As String = "COM17" ' DEBUGT OFFLINE
     'Private COM As String = "COM3" ' se inicia con este de principio para que la conexion se realize si o si
     Private PuertoIndex As Byte = 1 'Index para consulta sql
@@ -1149,10 +1154,12 @@ Public Class FormPrincipal
                                     'ImprimeDatatable(registrosOffline, "registros")
                                     'Trace.WriteLine("limites 1 = " & Contador1(0) + Contador2(0) & " == " & CInt(LblTotal.Text) & "")
                                     If (Contador1(0) + Contador2(0)) >= LimiteBatch1 Then
+                                        'If EstadoCrearBatchTimer = False Then
+                                        'puede el sensor crear el batch
+                                        'EstadoCrearBatchTimer = True ' no creara mas batchs
                                         CrearBatch(IdEquipo1, NombreEquipo1)
+                                        'End If
                                     End If
-
-
                             End Select
                         End If
                         TiempoLecturaTotal1 = 0
@@ -1186,12 +1193,16 @@ Public Class FormPrincipal
                                         row(3) = IdEquipo1
                                         registrosOffline.Rows.Add(row)
                                         LblContador2.Text = Contador2(0)
-                                        'Trace.WriteLine("QUEDA VACIO")
+
                                     End If
                                     'Trace.WriteLine($" x = {Contador1(0) + Contador2(0)} vs y =  {LimiteBatch1} ")
                                     If (Contador2(0) + Contador1(0)) >= LimiteBatch1 Then
+                                        'si el batch fue creado recientemente  entonces
+                                        'If EstadoCrearBatchTimer = False Then
+                                        '    EstadoCrearBatchTimer = True ' se otorgara false cuando haya pasado un tiempo minimo esperado  y luego leera la paleta
                                         CrearBatch(IdEquipo1, NombreEquipo1)
-                                    End If
+                                            'End If
+                                        End If
 
                             End Select
                         End If
@@ -1247,7 +1258,6 @@ Public Class FormPrincipal
     'se necesita ver cuando se prende en que estado paleta estubo la ultima vez
     Private Sub AsignarPrimerEstadoPaleta()
         If conexionDb Then
-
             Configuraciones.Id = 1
             Configuraciones.EstadoPaleta = EstadoPaleta
             Dim resp = Configuraciones.ActualizarPaleta()
@@ -1341,6 +1351,12 @@ Public Class FormPrincipal
                 WriteJson(registrosOffline, PathLecturas)
             End If
 
+            'se necesita probar lo que  es el no se actualiza en la base de datos como back end
+
+            'xxx
+
+
+
 
             If CambiandoPaleta = False Then
                 CambiandoPaleta = True
@@ -1352,6 +1368,13 @@ Public Class FormPrincipal
             UltimaFechaInicioBatch = Now ' que es mantenga localmente siempre
             UltimacuentaOnline1 = 0
             UltimacuentaOnline2 = 0
+
+
+
+            'HiloCancelacionBatch = New Thread(AddressOf HabilitarBatch)
+            'HiloCancelacionBatch.Start()
+
+
         Catch ex As Exception
             LogERR("Error FormPrincipal 276 : " & ex.Message)
             Trace.WriteLine("exception = " & ex.Message)
@@ -1359,14 +1382,35 @@ Public Class FormPrincipal
 
     End Sub
 
+    Public Sub HabilitarBatch()
+        Thread.Sleep(30000) ' 30 segundos despues de el primer batch para que no se aga a cada rato
+        EstadoCrearBatchTimer = False ' se vuelve a habilitar despues de un tiempo 
+
+    End Sub
+
     Public Sub CambiarPaleta()
+        Trace.WriteLine("comenzando a dormir" & TiempoEspera)
         Thread.Sleep(TiempoEspera)
-        If EstadoPaleta = 1 Then
-            EnviaCaracterArduino("k") 'abierta
+        ' despues de esperar para el modo offline y se pueda actualizar asimismo, y si no tiene  entonces  que lo cambie  local, luego online
+        If conexionDb Then
+            Trace.WriteLine("despertando")
+            'If EstadoPaleta
+            Trace.WriteLine("asignando estado inverso  y actualizando")
+            If EstadoPaleta = 0 Then
+                EstadoPaleta = 1
+            Else
+                EstadoPaleta = 0
+            End If
+            AsignarPrimerEstadoPaleta()
+            Trace.WriteLine("actualizacion completada")
+            CambiandoPaleta = False
         Else
-            EnviaCaracterArduino("j") 'cerrada
+            If EstadoPaleta = 1 Then
+                EnviaCaracterArduino("k") 'abierta
+            Else
+                EnviaCaracterArduino("j") 'cerrada
+            End If
         End If
-        CambiandoPaleta = False
     End Sub
 
 
